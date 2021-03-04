@@ -6,10 +6,11 @@
 
 ****
 ## 目录
-* [图像处理的概念与基本操作](#图像处理的概念与基本操作)
-* [OpenCV库进阶操作](#OpenCV库进阶操作)
-* [图像分类任务概念导入](#图像分类任务概念导入)
-* [PaddleClas数据增强代码解析](#PaddleClas数据增强代码解析)
+* [python 的__call__()方法](#python 的__call__()方法)
+* [图像基础知识](#图像基础知识)
+* [图片格式](#图片格式)
+* [常用库](#常用库)
+* [常见操作](#常见操作)
 * [预习作业](#预习作业)
 
 
@@ -44,10 +45,14 @@ c=C()
 
 
 
-## python 的__call__()方法
+## 图像基础知识
 
 
-## python 的__call__()方法
+## 图片格式
+
+## 常用库
+
+## 常见操作
 
 
 ## 预习作业
@@ -57,10 +62,12 @@ c=C()
 1.本地安装PaddlePaddle，截图并上传
 
      提示：使用 python 进入python解释器，输入import paddle ，再输入 paddle.utils.run_check()。
+     
    ![](https://ai-studio-static-online.cdn.bcebos.com/ab991a76629f42eba4ed7235dbf60e9d1219104cdf2d433ead9d742654399b5b)
 
 
 2.本地安装open-cv-python，截图上传
 
      终端下输入： pip show opencv-python
+     
    ![](https://ai-studio-static-online.cdn.bcebos.com/e8d9c1486b4945dab96135794119b7394d5786203d584377b421015c9e1a7029)
