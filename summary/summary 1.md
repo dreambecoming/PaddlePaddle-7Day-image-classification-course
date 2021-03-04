@@ -43,6 +43,47 @@ c=C()
 ```
 * 能够在多继承中按照广度优先的继承树搜索关系链来有序地调用与父类相同名称的方法，且在每个子类拥有super的都会执行父类方法
 
+* isinstance() 函数来判断一个对象是否是一个已知的类型，类似 type()。
+
+    * isinstance() 与 type() 区别：
+
+        type() 不会认为子类是一种父类类型，不考虑继承关系。  
+
+        isinstance() 会认为子类是一种父类类型，考虑继承关系。
+   * isinstance(object, classinfo)
+     object -- 实例对象。  
+     classinfo -- 可以是直接或间接类名、基本类型或者由它们组成的元组。
+     ```python
+     class A:
+         pass
+
+     class B(A):
+         pass
+
+     isinstance(A(), A)    # returns True
+     type(A()) == A        # returns True
+     isinstance(B(), A)    # returns True
+     type(B()) == A        # returns False
+     ```
+     ```python
+     print('A\t:',A)
+     print('A()\t:',A())
+     print('type(A())\t:',type(A()))
+     print('type(A())== A\t:', type(A()) == A  )
+     print('判断A()实例对象，A类名 的类型是否相同：',isinstance(A(), A))
+     ```
+     输出：
+     ```python
+     A	: <class '__main__.A'>
+     A()	: <__main__.A object at 0x7f7342ff3350>
+     type(A())	: <class '__main__.A'>
+     type(A())== A	: True
+     判断A()实例对象，A类名 的类型是否相同： True
+     ```
+     
+        
+   
+
 
 
 ## 图像基础知识
