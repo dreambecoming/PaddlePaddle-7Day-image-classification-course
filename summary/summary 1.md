@@ -329,7 +329,10 @@ NumPy(Numerical Python) 是 Python 语言的一个扩展程序库，支持大量
 形状变换：numpy.reshape(arr, newshape, order='C')  
      arr：要修改形状的数组  。
      newshape：整数或者整数数组，新的形状应当兼容原有形状 。 
-     order：'C' -- 按行，'F' -- 按列，'A' -- 原顺序，'k' -- 元素在内存中的出现顺序。  
+     order：'C' -- 按行，'F' -- 按列，'A' -- 原顺序，'k' -- 元素在内存中的出现顺序。 
+...  
+其他运算 可见![](https://www.runoob.com/numpy/numpy-tutorial.html)
+     * 矩阵乘法 (dot) ，对应分量相乘 (multiply或 *)
 
 * CV2
 读取BGR，通道HWC，范围[0,255] ，类型uint8; 图像类型numpy.ndarray；
