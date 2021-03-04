@@ -8,16 +8,16 @@
 ****
 ## 目录
 * [图像处理的概念与基本操作](#图像处理的概念与基本操作)
-* [OpenCV库进阶操作](#OpenCV库进阶操作)
+* [OpenCV库进阶操作](#opencv库进阶操作)
 * [图像分类任务概念导入](#图像分类任务概念导入)
-* [PaddleClas数据增强代码解析](#PaddleClas数据增强代码解析)
+* [PaddleClas数据增强代码解析](#paddleclas数据增强代码解析)
 * [作业](#作业)
 ## 参考资料
 * [面向初学者的OpenCV-Python教程](http://codec.wang/#/opencv/)
 * [OpenCV学习—OpenCV图像处理基本操作](https://www.bilibili.com/video/BV1VC4y1h7wq?p=2)
 * [OpenCV 4计算机视觉项目实战（原书第2版）](https://github.com/PacktPublishing/Learn-OpenCV-4-By-Building-Projects-Second-Edition)
 
-# 课节2：图像处理入门基础（一）
+# 课节2：图像处理基本概念
 
 ## 图像处理的概念与基本操作
 ```python
@@ -160,8 +160,10 @@ plt.imshow(img)
 img.shape
 ```
 ## OpenCV库进阶操作
-ROI：Region of Interest，感兴趣区域。
-通道分割与合并:彩色图的BGR三个通道是可以分开单独访问的，也可以将单独的三个通道合并成一副图像。分别使用cv2.split()和cv2.merge()
+### ROI
+Region of Interest，感兴趣区域。
+### 通道分割与合并
+彩色图的BGR三个通道是可以分开单独访问的，也可以将单独的三个通道合并成一副图像。分别使用cv2.split()和cv2.merge()
 ```python
 import math
 import random
@@ -190,7 +192,7 @@ plt.subplot(144)
 plt.imshow(b,'gray')
 plt.title('B_Channel')
 ```
-颜色空间转换
+### 颜色空间转换
 
  最常用的颜色空间转换如下：
   * RGB或BGR到灰度（COLOR_RGB2GRAY，COLOR_BGR2GRAY）
@@ -245,12 +247,13 @@ blue = np.uint8([[[255, 0, 0]]])
 hsv_blue = cv2.cvtColor(blue, cv2.COLOR_BGR2HSV)
 print(hsv_blue)
 ```
-阈值分割
+### 阈值分割
 
     使用固定阈值、自适应阈值和Otsu阈值法"二值化"图像  
     OpenCV函数：cv2.threshold(), cv2.adaptiveThreshold()
 
-* 固定阈值分割
+ * 固定阈值分割
+ 
  固定阈值分割很直接，一句话说就是像素点值大于阈值变成一类值，小于阈值变成另一类值。
 
  cv2.threshold()用来实现阈值分割，ret是return value缩写，代表当前的阈值。函数有4个参数：
@@ -297,7 +300,7 @@ print(hsv_blue)
      plt.title(titles[i], fontsize=8)
      plt.xticks([]), plt.yticks([])
  ```
-* 自适应阈值
+ * 自适应阈值
 
  看得出来固定阈值是在整幅图片上应用一个阈值进行分割，它并不适用于明暗分布不均的图片。 cv2.adaptiveThreshold()自适应阈值会每次取图片的一小部分计算阈值，这样图片不同区域的阈值就不尽相同。它有5个参数，其实很好理解，先看下效果：
 
@@ -331,7 +334,27 @@ print(hsv_blue)
      plt.title(titles[i], fontsize=8)
      plt.xticks([]), plt.yticks([])
  ```
-* Otsu阈值法就提供了一种自动高效的二值化方法
+ * Otsu阈值法就提供了一种自动高效的二值化方法
+
+### 图像几何变换
+
+     实现旋转、平移和缩放图片
+     OpenCV函数：cv2.resize(), cv2.flip(), cv2.warpAffine()
+     
+  缩放图片
+
+  缩放就是调整图片的大小，使用cv2.resize()函数实现缩放。可以按照比例缩放，也可以按照指定的大小缩放： 我们也可以指定缩放方法interpolation，更专业点叫插值方法，默认是INTER_LINEAR
+
+  缩放过程中有五种插值方式：
+
+   * cv2.INTER_NEAREST 最近邻插值
+   * cv2.INTER_LINEAR 线性插值
+   * cv2.INTER_AREA 基于局部像素的重采样，区域插值
+   * cv2.INTER_CUBIC 基于邻域4x4像素的三次插值
+   * cv2.INTER_LANCZOS4 基于8x8像素邻域的Lanczos插值
+
+
+
 
 ## 图像分类任务概念导入
 
