@@ -12,7 +12,10 @@
 * [图像分类任务概念导入](#图像分类任务概念导入)
 * [PaddleClas数据增强代码解析](#PaddleClas数据增强代码解析)
 * [作业](#作业)
-
+## 参考资料
+* [面向初学者的OpenCV-Python教程](http://codec.wang/#/opencv/)
+* [OpenCV学习—OpenCV图像处理基本操作](https://www.bilibili.com/video/BV1VC4y1h7wq?p=2)
+* [OpenCV 4计算机视觉项目实战（原书第2版）](https://github.com/PacktPublishing/Learn-OpenCV-4-By-Building-Projects-Second-Edition)
 
 # 课节2：图像处理入门基础（一）
 
@@ -156,9 +159,6 @@ img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 plt.imshow(img)
 img.shape
 ```
-```python
-
-```
 ## OpenCV库进阶操作
 ROI：Region of Interest，感兴趣区域。
 通道分割与合并:彩色图的BGR三个通道是可以分开单独访问的，也可以将单独的三个通道合并成一副图像。分别使用cv2.split()和cv2.merge()
@@ -228,6 +228,7 @@ hsv = cv2.cvtColor(sky, cv2.COLOR_BGR2HSV)
 # inRange()：介于lower/upper之间的为白色，其余黑色
 mask = cv2.inRange(sky, lower_blue, upper_blue)
 # 只保留原图中的蓝色部分
+# bitwise_and(src1, src2, dst=None, mask=None) 
 res = cv2.bitwise_and(sky, sky, mask=mask)
 
 # 保存颜色分割结果
@@ -237,6 +238,100 @@ res = cv2.imread('res.jpg')
 res = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
 plt.imshow(res)
 ```
+蓝色的HSV值的上下限lower和upper范围，参考标准蓝色BGR值的转换值 [[[120 255 255]]]：
+```python
+# uint8类型取值范围：0到255
+blue = np.uint8([[[255, 0, 0]]])
+hsv_blue = cv2.cvtColor(blue, cv2.COLOR_BGR2HSV)
+print(hsv_blue)
+```
+阈值分割
+
+    使用固定阈值、自适应阈值和Otsu阈值法"二值化"图像  
+    OpenCV函数：cv2.threshold(), cv2.adaptiveThreshold()
+
+* 固定阈值分割
+ 固定阈值分割很直接，一句话说就是像素点值大于阈值变成一类值，小于阈值变成另一类值。
+
+ cv2.threshold()用来实现阈值分割，ret是return value缩写，代表当前的阈值。函数有4个参数：
+
+   * 参数1：要处理的原图，一般是灰度图
+   * 参数2：设定的阈值
+   * 参数3：最大阈值，一般为255
+   * 参数4：阈值的方式，主要有5种，详情：ThresholdTypes
+     * 0: THRESH_BINARY  当前点值大于阈值时，取Maxval,也就是第四个参数，否则设置为0
+     * 1: THRESH_BINARY_INV 当前点值大于阈值时，设置为0，否则设置为Maxval
+     * 2: THRESH_TRUNC 当前点值大于阈值时，设置为阈值，否则不改变
+     * 3: THRESH_TOZERO 当前点值大于阈值时，不改变，否则设置为0
+     * 4:THRESH_TOZERO_INV  当前点值大于阈值时，设置为0，否则不改变
+
+ ```python
+ import cv2
+ import matplotlib.pyplot as plt
+ # 灰度图读入
+ img = cv2.imread('lena.jpg', 0)
+ # 颜色通道转换
+ img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+ # 阈值分割
+ ret, th = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+
+ # 应用5种不同的阈值方法
+ # THRESH_BINARY  当前点值大于阈值时，取Maxval,否则设置为0
+ ret, th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+ # THRESH_BINARY_INV 当前点值大于阈值时，设置为0，否则设置为Maxval
+ ret, th2 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY_INV)
+ # THRESH_TRUNC 当前点值大于阈值时，设置为阈值，否则不改变
+ ret, th3 = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
+ # THRESH_TOZERO 当前点值大于阈值时，不改变，否则设置为0
+ ret, th4 = cv2.threshold(img, 127, 255, cv2.THRESH_TOZERO)
+ # THRESH_TOZERO_INV  当前点值大于阈值时，设置为0，否则不改变
+ ret, th5 = cv2.threshold(img, 127, 255, cv2.THRESH_TOZERO_INV)
+
+ titles = ['Original', 'BINARY', 'BINARY_INV', 'TRUNC', 'TOZERO', 'TOZERO_INV']
+ images = [img, th1, th2, th3, th4, th5]
+
+ plt.figure(figsize=(12,12))
+ for i in range(6):
+     plt.subplot(2, 3, i + 1)
+     plt.imshow(images[i], 'gray')
+     plt.title(titles[i], fontsize=8)
+     plt.xticks([]), plt.yticks([])
+ ```
+* 自适应阈值
+
+ 看得出来固定阈值是在整幅图片上应用一个阈值进行分割，它并不适用于明暗分布不均的图片。 cv2.adaptiveThreshold()自适应阈值会每次取图片的一小部分计算阈值，这样图片不同区域的阈值就不尽相同。它有5个参数，其实很好理解，先看下效果：
+
+  * 参数1：要处理的原图
+  * 参数2：最大阈值，一般为255
+  * 参数3：小区域阈值的计算方式
+    * ADAPTIVE_THRESH_MEAN_C：小区域内取均值
+    * ADAPTIVE_THRESH_GAUSSIAN_C：小区域内加权求和，权重是个高斯核
+  * 参数4：阈值方式（跟前面讲的那5种相同）
+  * 参数5：小区域的面积，如11就是11*11的小块
+  * 参数6：最终阈值等于小区域计算出的阈值再减去此值
+
+ ```python
+ # 自适应阈值对比固定阈值
+ img = cv2.imread('lena.jpg', 0)
+
+ # 固定阈值
+ ret, th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+ # 自适应阈值, ADAPTIVE_THRESH_MEAN_C：小区域内取均值
+ th2 = cv2.adaptiveThreshold(
+     img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 4)
+ # 自适应阈值, ADAPTIVE_THRESH_GAUSSIAN_C：小区域内加权求和，权重是个高斯核
+ th3 = cv2.adaptiveThreshold(
+     img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 17, 6)
+
+ titles = ['Original', 'Global(v = 127)', 'Adaptive Mean', 'Adaptive Gaussian']
+ images = [img, th1, th2, th3]
+ plt.figure(figsize=(12,12))
+ for i in range(4):
+     plt.subplot(2, 2, i + 1), plt.imshow(images[i], 'gray')
+     plt.title(titles[i], fontsize=8)
+     plt.xticks([]), plt.yticks([])
+ ```
+* Otsu阈值法就提供了一种自动高效的二值化方法
 
 ## 图像分类任务概念导入
 
