@@ -352,9 +352,69 @@ print(hsv_blue)
    * cv2.INTER_AREA 基于局部像素的重采样，区域插值
    * cv2.INTER_CUBIC 基于邻域4x4像素的三次插值
    * cv2.INTER_LANCZOS4 基于8x8像素邻域的Lanczos插值
+```python
+img = cv2.imread('cat.png')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+# 按照指定的宽度、高度缩放图片
+res = cv2.resize(img, (400, 500))
+# 按照比例缩放，如x,y轴均放大一倍
+res2 = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
 
+plt.subplot(121)
+plt.imshow(res)
+plt.title('res')
+plt.subplot(122)
+plt.imshow(res2)
+plt.title('res2')
+```
+翻转图片
 
+镜像翻转图片，可以用`cv2.flip()`函数：  
+其中，参数2 = 0：垂直翻转(沿x轴)，参数2 > 0: 水平翻转(沿y轴)，参数2 < 0: 水平垂直翻转。
+```python
+dst = cv2.flip(img, 1)
+plt.imshow(dst)
+```
+平移图片
+
+要平移图片，我们需要定义下面这样一个矩阵，tx,ty是向x和y方向平移的距离：
+
+$$
+ M = \left[
+ \begin{matrix}
+   1 & 0 & t_x \newline
+   0 & 1 & t_y 
+  \end{matrix}
+  \right] 
+$$
+
+平移是用仿射变换函数 cv2.warpAffine() 实现的：
+```python
+# 平移图片
+import numpy as np
+# 获得图片的高、宽
+rows, cols = img.shape[:2]
+
+# 定义平移矩阵，需要是numpy的float32类型
+# x轴平移200，y轴平移500
+M = np.float32([[1, 0, 100], [0, 1, 500]])
+# 用仿射变换实现平移
+dst = cv2.warpAffine(img, M, (cols, rows))
+plt.imshow(dst)
+```
+### 绘图功能
+    绘制各种几何形状、添加文字
+    OpenCV函数：cv2.line(), cv2.circle(), cv2.rectangle(), cv2.ellipse(), cv2.putText()
+
+绘制形状的函数有一些共同的参数，提前在此说明一下：
+
+* img：要绘制形状的图片
+* color：绘制的颜色
+   * 彩色图就传入BGR的一组值，如蓝色就是(255,0,0)
+   * 灰度图，传入一个灰度值就行
+* thickness：线宽，默认为1；对于矩形/圆之类的封闭形状而言，传入-1表示填充形状
+* lineType：线的类型。默认情况下，它是8连接的。cv2.LINE_AA 是适合曲线的抗锯齿线。
 
 ## 图像分类任务概念导入
 
