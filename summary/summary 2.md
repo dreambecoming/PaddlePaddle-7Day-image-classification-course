@@ -159,8 +159,84 @@ img.shape
 ```python
 
 ```
-
 ## OpenCV库进阶操作
+ROI：Region of Interest，感兴趣区域。
+通道分割与合并:彩色图的BGR三个通道是可以分开单独访问的，也可以将单独的三个通道合并成一副图像。分别使用cv2.split()和cv2.merge()
+```python
+import math
+import random
+import numpy as np
+%matplotlib inline
+import cv2
+import matplotlib.pyplot as plt
+
+img = cv2.imread('lena.jpg')
+# 通道分割
+b, g, r = cv2.split(img)
+
+RGB_Image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+plt.figure(figsize=(12,12))
+#显示各通道信息
+plt.subplot(141)
+plt.imshow(RGB_Image,'gray')
+plt.title('RGB_Image')
+plt.subplot(142)
+plt.imshow(r,'gray')
+plt.title('R_Channel')
+plt.subplot(143)
+plt.imshow(g,'gray')
+plt.title('G_Channel')
+plt.subplot(144)
+plt.imshow(b,'gray')
+plt.title('B_Channel')
+```
+颜色空间转换
+
+ 最常用的颜色空间转换如下：
+  * RGB或BGR到灰度（COLOR_RGB2GRAY，COLOR_BGR2GRAY）
+  * RGB或BGR到YcrCb（或YCC）（COLOR_RGB2YCrCb，COLOR_BGR2YCrCb）
+  * RGB或BGR到HSV（COLOR_RGB2HSV，COLOR_BGR2HSV）
+  * RGB或BGR到Luv（COLOR_RGB2Luv，COLOR_BGR2Luv）
+  * 灰度到RGB或BGR（COLOR_GRAY2RGB，COLOR_GRAY2BGR）
+
+ 颜色转换其实是数学运算，如灰度化最常用的是：gray=R*0.299+G*0.587+B*0.114。
+
+特定颜色物体追踪
+
+  HSV是一个常用于颜色识别的模型，相比BGR更易区分颜色，转换模式用COLOR_BGR2HSV表示。
+
+  OpenCV中色调H范围为[0,179]，饱和度S是[0,255]，明度V是[0,255]。虽然H的理论数值是0°~360°，但8位图像像素点的最大值是255，所以OpenCV中除以了2，某些软件可能使用不同的尺度表示，所以同其他软件混用时，记得归一化。
+  
+  示例1：  
+ 一个使用HSV来只显示视频中蓝色物体的例子，步骤如下：
+
+     1. 捕获视频中的一帧
+     2. 从BGR转换到HSV
+     3. 提取蓝色范围的物体
+     4. 只显示蓝色物体
+
+```python
+# 加载一张有天空的图片
+sky = cv2.imread('sky.jpg')
+
+# 蓝色的范围，不同光照条件下不一样，可灵活调整
+lower_blue = np.array([15, 60, 60])
+upper_blue = np.array([130, 255, 255])
+
+# 从BGR转换到HSV
+hsv = cv2.cvtColor(sky, cv2.COLOR_BGR2HSV)
+# inRange()：介于lower/upper之间的为白色，其余黑色
+mask = cv2.inRange(sky, lower_blue, upper_blue)
+# 只保留原图中的蓝色部分
+res = cv2.bitwise_and(sky, sky, mask=mask)
+
+# 保存颜色分割结果
+cv2.imwrite('res.jpg', res)
+
+res = cv2.imread('res.jpg')
+res = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
+plt.imshow(res)
+```
 
 ## 图像分类任务概念导入
 
@@ -315,4 +391,3 @@ erase = RandomErasing()
 img2=erase(img)
 plt.imshow(img2)    
 ```
-
