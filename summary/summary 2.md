@@ -89,6 +89,75 @@ np.savetxt('lena-r.txt', r, fmt='%4d')
 np.savetxt('lena-g.txt', g, fmt='%4d')
 np.savetxt('lena-b.txt', b, fmt='%4d')
 
+# PIL库的crop函数做简单的图片裁剪
+# 使用Image中的open(file)方法可返回一个打开的图片，使用crop([x1,y1,x2,y2])可进行裁剪
+r.crop((100,100,128,128))
+
+# 将裁剪后图片的矩阵保存成文本，数字格式为整数
+np.savetxt('lena-r-crop.txt', r.crop((100,100,128,128)), fmt='%4d')
+```
+分辨率=画面水平方向的像素值 * 画面垂直方向的像素值
+
+使用OpenCV加载并保存图片
+
+    加载图片，显示图片，保存图片  
+    OpenCV函数：cv2.imread(), cv2.imshow(), cv2.imwrite()
+
+ 大部分人可能都知道电脑上的彩色图是以RGB(红-绿-蓝，Red-Green-Blue)颜色模式显示的，但OpenCV中彩色图是以B-G-R通道顺序存储的，灰度图只有一个通道。
+
+ OpenCV默认使用BGR格式，而RGB和BGR的颜色转换不同，即使转换为灰度也是如此。一些开发人员认为R+G+B/3对于灰度是正确的，但最佳灰度值称为亮度（luminosity），并且具有公式：0.21R+0.72G+0.07*B
+
+ 图像坐标的起始点是在左上角，所以行对应的是y，列对应的是x。
+
+ * 加载图片
+ 使用cv2.imread()来读入一张图片：
+
+  * 参数1：图片的文件名
+
+    * 如果图片放在当前文件夹下，直接写文件名就行了，如'lena.jpg'
+    * 否则需要给出绝对路径，如'D:\OpenCVSamples\lena.jpg'
+  
+  * 参数2：读入方式，省略即采用默认值
+
+    * cv2.IMREAD_COLOR：彩色图，默认值(1)
+    * cv2.IMREAD_GRAYSCALE：灰度图(0)
+    * cv2.IMREAD_UNCHANGED：包含透明通道的彩色图(-1)
+```python
+%matplotlib inline
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+
+# 加载彩色图
+img = cv2.imread('lena.jpg', 1)
+# 将彩色图的BGR通道顺序转成RGB
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+# 显示图片
+plt.imshow(img)
+
+# 打印图片的形状
+print(img.shape)
+# 形状中包括行数、列数和通道数
+height, width, channels = img.shape
+# img是灰度图的话：height, width = img.shape
+```
+```python
+# 将彩色图的BGR通道直接转为灰度图
+img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+plt.imshow(img,'gray')
+
+cv2.imwrite('lena-grey.jpg',img)
+```
+```python
+# 加载四通道图片
+img = cv2.imread('cat.png',-1)
+# 将彩色图的BGR通道顺序转成RGB，注意，在这一步直接丢掉了alpha通道
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+plt.imshow(img)
+img.shape
+```
+```python
+
 ```
 
 ## OpenCV库进阶操作
