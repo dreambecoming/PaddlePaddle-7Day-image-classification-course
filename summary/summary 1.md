@@ -3,6 +3,7 @@
 
 [课程链接](https://aistudio.baidu.com/aistudio/course/introduce/11939)	`https://aistudio.baidu.com/aistudio/course/introduce/11939`  
 [飞桨官网](https://www.paddlepaddle.org.cn/)	`https://www.paddlepaddle.org.cn/`   
+[推荐学习网站](https://www.runoob.com/python3/python3-tutorial.html)	`https://www.runoob.com/python3/python3-tutorial.html`  
 
 ****
 ## 目录
@@ -277,17 +278,58 @@ Webp是一种高效的图像编码方式，由谷歌推出，开源免费。其�
 ## 常用库
 
 * Numpy
+NumPy(Numerical Python) 是 Python 语言的一个扩展程序库，支持大量的维度数组与矩阵运算，此外也针对数组运算提供大量的数学函数库。  
+导入：import numpy as np  
+创建数组：
+   * numpy.array(object, dtype = None, copy = True, order = None, subok = False, ndmin = 0)  
+   * arange([start,] stop[, step,], dtype=None)，返回类型：ndarray，N 维数组对象 ndarray。
+     * range()中的步长不能为小数，但是np.arange()中的步长可以为小数
+     ```python
+     import numpy as np
+     print(np.arange(3))
+     print(type(np.arange(3)))
 
-Numpy对多维矩阵A的操作一般有：
+     print('\n')
+     print(np.array([1,2,3])  )
+     print(type(np.array([1,2,3]) ))
+     ```
+     输出：
+     ```python
+     [0 1 2]
+     <class 'numpy.ndarray'>
 
-A.shape #HWC
 
-type(A) #numpy.array
-
-A.dtype() #uint8,
-float…
-
-np.min(A), np.max(A) #最值
+     [1 2 3]
+     <class 'numpy.ndarray'>
+     ```
+数组信息：
+     ```python
+     array=np.array([[1,2,3],[4,5,6],[7,8,9],[10,11,12]])
+     print(array)
+     #数组维度
+     print(array.ndim)
+     #数组形状
+     print(array.shape)
+     #数组元素个数
+     print(array.size)
+     #数组元素类型
+     print(array.dtype)
+     ```
+     输出：
+     ```python
+     [[ 1  2  3]
+      [ 4  5  6]
+      [ 7  8  9]
+      [10 11 12]]
+     2
+     (4, 3)
+     12
+     int64
+     ```
+形状变换：numpy.reshape(arr, newshape, order='C')  
+     arr：要修改形状的数组  。
+     newshape：整数或者整数数组，新的形状应当兼容原有形状 。 
+     order：'C' -- 按行，'F' -- 按列，'A' -- 原顺序，'k' -- 元素在内存中的出现顺序。  
 
 * CV2
 读取BGR，通道HWC，范围[0,255] ，类型uint8; 图像类型numpy.ndarray；
