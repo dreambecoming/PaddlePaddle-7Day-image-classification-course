@@ -226,9 +226,6 @@ $\theta \leftarrow \theta-\frac{\lambda }{m}\sum_{i=1}^{m}\bigtriangledown _{\ma
 
 模型训练完成后，将得到参数$\mathbf{\hat{\theta}}$，$\mathbf{\hat{\theta}}$参数可以看成真实${\mathbf{\theta}}$的最佳估计。接下来把$\mathbf{\hat{\theta}}$参数代入线性回归模型，待预测样本的输入特征分别乘以回归系数（权重）后加和即可得到输出，该输出便是预测值。
 
-* 截距项的功能等将来碰上了应用再研究。
-* 其中数学推导，将来会进行手工复现的。
-
 ### SoftMax分类器
 [SoftMax分类器](https://aistudio.baidu.com/aistudio/projectdetail/1323298)
 
@@ -298,19 +295,271 @@ model.evaluate(test_dataset,batch_size=64,verbose=1)
 ### 多层感知机模型
 [多层感知机模型](https://aistudio.baidu.com/aistudio/projectdetail/1323886)
 
+1. 多层感知机模型表达式
 
+线性回归模型和SoftMax分类器都属于单层全连接神经网络，下面介绍一种具有多层结构的全连接神经网络——多层感知机。多层感知机是一种至少具有1个隐藏层的全连接神经网络，每个隐藏层输出需要经过激活函数转换。如果是多分类问题，可以把经过激励函数转化后的值进行SoftMax运算，输出得到样本在各类别上的概率。我们以MNIST图像分类为例构建一个多层感知机，它用来根据图片来预测该图中包含的数字类别。该数据集中的训练集样本数量为60000个，测试集样本数量为10000个。每个样本均是形状大小为$1 \times 28 \times 28$的图像。每个图片样本的宽与高均为28像素，28乘28得到784，可以把这784个数值看作为输入特征，用$x_{1},x_{2},...x_{784}$表示。各样本的标签取值整数0~9范围，代表10种数字类别。假设模型有1个隐藏层，设隐藏层单元数量为128个。
 
+给定一个大小为$n$的批量样本$\mathbf{X} \in \mathbb{R}^{n \times 784}$，批量化的输入特征与权重相乘，之后用激活函数$\sigma$进行非线性转化，可表示为：
 
+$\mathbf{H}=\sigma(\mathbf{X}\mathbf{w}_{h}+\mathbf{b}_{h})$
 
+其中，$\mathbf{H} \in \mathbb{R}^{n \times 128}, \mathbf{w}_{h} \in \mathbb{R}^{784 \times 128}, \mathbf{b}_{h} \in \mathbb{R}^{1 \times 128}$
+
+接下来，把经过隐藏层激活的输出值进行线性加权，从128维线性转化为10维，得到输出层的值。
+
+$\mathbf{O}=\mathbf{H}\mathbf{w}_{o}+\mathbf{b}_{o}$
+
+其中，$q$为最终输出的类别个数，在MNIST图像分类任务中，类别数为10.
+
+由于是分类问题，我们选择交叉熵损失函数。交叉熵主要用于衡量估计值与真实值之间的差距。交叉熵值越小，模型预测效果越好。
+
+$E(\mathbf{y}^{i},\mathbf{\hat{y}}^{i})=-\sum_{j=1}^{q}\mathbf{y}_{j}^{i}ln(\mathbf{\hat{y}}_{j}^{i})$
+
+其中，$\mathbf{y}^{i} \in \mathbb{R}^{q}$为真实值，$y_{j}^{i}$是$\mathbf{y}^{i}$中的元素(取值为0或1)，$j=1,...,q$。$\mathbf{\hat{y}^{i}} \in \mathbb{R}^{q}$是预测值（样本在每个类别上的概率）。
+
+```python
+import paddle
+import paddle.nn.functional as F
+from paddle.vision.transforms import ToTensor
+
+#导入数据
+train_dataset=paddle.vision.datasets.MNIST(mode="train", transform=ToTensor())
+val_dataset=paddle.vision.datasets.MNIST(mode="test", transform=ToTensor())
+
+#定义模型
+class MLPModel(paddle.nn.Layer):
+    def __init__(self):
+        super(MLPModel, self).__init__()
+        self.flatten=paddle.nn.Flatten()
+        self.hidden=paddle.nn.Linear(in_features=784,out_features=128)
+        self.output=paddle.nn.Linear(in_features=128,out_features=10)
+        
+    def forward(self, x):
+        x=self.flatten(x)
+        x=self.hidden(x) #经过隐藏层
+        x=F.relu(x) #经过激活层
+        x=self.output(x)
+        return x
+
+model=paddle.Model(MLPModel())
+
+model.prepare(paddle.optimizer.Adam(parameters=model.parameters()),
+              paddle.nn.CrossEntropyLoss(),
+              paddle.metric.Accuracy())
+
+model.fit(train_dataset,
+          epochs=5,
+          batch_size=64,
+          verbose=1)
+
+model.evaluate(val_dataset,verbose=1)
+```
 ### 卷积网络LeNet-5
 [卷积网络LeNet-5](https://aistudio.baidu.com/aistudio/projectdetail/1329509)
 
+1. LeNet-5模型表达式
+
+LeNet-5是卷积神经网络模型的早期代表，它由LeCun在1998年提出。该模型采用顺序结构，主要包括7层（2个卷积层、2个池化层和3个全连接层），卷积层和池化层交替排列。以mnist手写数字分类为例构建一个LeNet-5模型。每个手写数字图片样本的宽与高均为28像素，样本标签值是0~9，代表0至9十个数字。
+
+![](https://ai-studio-static-online.cdn.bcebos.com/c758063e28754e20ac3ec70cef5ca1b0168ad923000d47f1bd686b59d2f3c23b)
+
+LeNet-5模型的正向传播过程。
+
+（1）卷积层L1
+
+单样本视角。L1层的输入数据形状大小为$\mathbb{R}^{1 \times 28 \times 28}$，表示通道数量为1，行与列的大小都为28。输出数据形状大小为$\mathbb{R}^{6 \times 24 \times 24}$，表示通道数量为6，行与列维都为24。
+
+批量样本视角。设批量大小为m。L1层的输入数据形状大小为$\mathbb{R}^{m \times 1 \times 28 \times 28}$，表示样本批量为m，通道数量为1，行与列的大小都为28。L1层的输出数据形状大小为$\mathbb{R}^{m \times 6 \times 24 \times 24}$，表示样本批量为m，通道数量为6，行与列维都为24。
+
+参数视角。L1层的权重形状大小$\mathbb{R}^{6 \times 1 \times 5 \times 5}$为，偏置项形状大小为6。
+
+这里有两个问题很关键：一是，为什么通道数从1变成了6呢？原因是模型的卷积层L1设定了6个卷积核，每个卷积核都与输入数据发生运算，最终分别得到6组数据。二是，为什么行列大小从28变成了24呢？原因是每个卷积核的行维与列维都为5，卷积核（5×5）在输入数据（28×28）上移动，且每次移动步长为1，那么输出数据的行列大小分别为28-5+1=24。
+
+（2）池化层L2
+
+从单样本视角。L2层的输入数据大小要和L1层的输出数据大小保持一致。输入数据形状大小为$\mathbb{R}^{6 \times 24 \times 24}$，表示通道数量为6，行与列的大小都为24。L2层的输出数据形状大小为$\mathbb{R}^{6 \times 12 \times 12}$，表示通道数量为6，行与列维都为12。
+
+从批量样本视角。设批量大小为m。L2层的输入数据形状大小为$\mathbb{R}^{m \times 6 \times 24 \times 24}$，表示样本批量为m，通道数量为6，行与列的大小都为24。L2层的输出数据形状大小为$\mathbb{R}^{m \times 6 \times 12 \times 12}$，表示样本批量为m，通道数量为6，行与列维都为12。为什么行列大小从24变成了12呢？原因是池化层中的过滤器形状大小为2×2，其在输入数据（24×24）上移动，且每次移动步长（跨距）为2，每次选择4个数（2×2）中最大值作为输出，那么输出数据的行列大小分别为24÷2=12。
+
+（3）卷积层L3
+
+单样本视角。L3层的输入数据形状大小为$\mathbb{R}^{6 \times 12 \times 12}$，表示通道数量为6，行与列的大小都为12。L3层的输出数据形状大小为$\mathbb{R}^{6 \times 8 \times 8}$，表示通道数量为16，行与列维都为8。
+
+批量样本视角。设批量大小为m。L3层的输入数据形状大小为$\mathbb{R}^{m \times 6 \times 12 \times 12}$，表示样本批量为m，通道数量为6，行与列的大小都为12。L3层的输出数据形状大小为$\mathbb{R}^{m \times 16 \times 8 \times 8}$，表示样本批量为m，通道数量为16，行与列维都为8。
+
+参数视角。L3层的权重形状大小为$\mathbb{R}^{m \times 16 \times 6 \times 5 \times 5}$，偏置项形状大小为16。
+
+（4）池化层L4
+
+从单样本视角。L4层的输入数据形状大小与L3层的输出数据大小一致。L4层的输入数据形状大小为$\mathbb{R}^{16 \times 8 \times 8}$，表示通道数量为16，行与列的大小都为8。L4层的输出数据形状大小为$\mathbb{R}^{16 \times 4 \times 4}$，表示通道数量为16，行与列维都为4。
+
+从批量样本视角。设批量大小为m。L4层的输入数据形状大小为$\mathbb{R}^{m \times 16 \times 8 \times 8}$，表示样本批量为m，通道数量为16，行与列的大小都为8。L4层的输出数据形状大小为$\mathbb{R}^{m \times 16 \times 4 \times 4}$，表示样本批量为m，通道数量为16，行与列维都为4。池化层L4中的过滤器形状大小为2×2，其在输入数据（形状大小24×24）上移动，且每次移动步长（跨距）为2，每次选择4个数（形状大小2×2）中最大值作为输出。
+
+（5）线性层L5
+
+从单样本视角。由于L5层是线性层，其输入大小为一维，所以需要把L4层的输出数据大小进行重新划分。L4层的输出形状大小为$\mathbb{R}^{16 \times 4 \times 4}$，则L5层的一维输入形状大小为16×4×4=256。L4层的一维输出大小为120。
+
+从批量样本视角。设批量大小为m。L5层输入数据形状大小为$\mathbb{R}^{m \times 256}$，表示样本批量为m，输入特征数量为256。输出数据形状大小为$\mathbb{R}^{m \times 120}$，表示样本批量为m，输出特征数量为120。
+
+（6）线性层L6
+
+从单样本视角。L6层的输入特征数量为120。L6层的输出特征数量为84。
+
+从批量样本视角。设批量大小为m。L6层的输入数据形状大小为$\mathbb{R}^{m \times 120}$，表示样本批量为m，输入特征数量为120。L6层的输出数据形状大小为$\mathbb{R}^{m \times 84}$，表示样本批量为m，输出特征数量为84。
+
+（7）线性层L7
+
+从单样本视角。L7层的输入特征数量为84。L7层的输出特征数量为10。
+
+从批量样本视角。设批量大小为m。L7层的输入数据形状大小为$\mathbb{R}^{m \times 84}$，表示样本批量为m，输入特征数量为84。L7层的输出数据形状大小为$\mathbb{R}^{m \times 10}$，表示样本批量为m，输出特征数量为10。
+
+由于是分类问题，我们选择交叉熵损失函数。交叉熵主要用于衡量估计值与真实值之间的差距。交叉熵值越小，模型预测效果越好。
+
+$E(\mathbf{y}^{i},\mathbf{\hat{y}}^{i})=-\sum_{j=1}^{q}\mathbf{y}_{j}^{i}ln(\mathbf{\hat{y}}_{j}^{i})$
+
+其中，$\mathbf{y}^{i} \in \mathbb{R}^{q}$为真实值，$y_{j}^{i}$是$\mathbf{y}^{i}$中的元素(取值为0或1)，$j=1,...,q$。$\mathbf{\hat{y}^{i}} \in \mathbb{R}^{q}$是预测值（样本在每个类别上的概率）。
+
+定义好了正向传播过程之后，接着随机化初始参数，然后便可以计算出每层的结果，每次将得到m×10的矩阵作为预测结果，其中m是小批量样本数。接下来进行反向传播过程，预测结果与真实结果之间肯定存在差异，以缩减该差异作为目标，计算模型参数梯度。进行多轮迭代，便可以优化模型，使得预测结果与真实结果之间更加接近。
 
 ```python
+import paddle
+import paddle.nn.functional as F
+from paddle.vision.transforms import Compose, Normalize
+
+transform = Compose([Normalize(mean=[127.5],
+                               std=[127.5],
+                               data_format='CHW')])
+#导入MNIST数据
+train_dataset=paddle.vision.datasets.MNIST(mode="train", transform=transform)
+val_dataset=paddle.vision.datasets.MNIST(mode="test", transform=transform)
+#定义模型
+class LeNetModel(paddle.nn.Layer):
+    def __init__(self):
+        super(LeNetModel, self).__init__()
+        # 创建卷积和池化层块，每个卷积层后面接着2x2的池化层
+        #卷积层L1
+        self.conv1 = paddle.nn.Conv2D(in_channels=1,
+                                      out_channels=6,
+                                      kernel_size=5,
+                                      stride=1)
+        #池化层L2
+        self.pool1 = paddle.nn.MaxPool2D(kernel_size=2,
+                                         stride=2)
+        #卷积层L3
+        self.conv2 = paddle.nn.Conv2D(in_channels=6,
+                                      out_channels=16,
+                                      kernel_size=5,
+                                      stride=1)
+        #池化层L4
+        self.pool2 = paddle.nn.MaxPool2D(kernel_size=2,
+                                         stride=2)
+        #线性层L5
+        self.fc1=paddle.nn.Linear(256,120)
+        #线性层L6
+        self.fc2=paddle.nn.Linear(120,84)
+        #线性层L7
+        self.fc3=paddle.nn.Linear(84,10)
+
+    #正向传播过程
+    def forward(self, x):
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = self.pool1(x)
+        x = F.relu(x)
+        x = self.conv2(x)
+        x = self.pool2(x)
+        x = paddle.flatten(x, start_axis=1,stop_axis=-1)
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        out = self.fc3(x)
+        return out
+
+model=paddle.Model(LeNetModel())
+
+model.prepare(paddle.optimizer.Adam(parameters=model.parameters()),
+              paddle.nn.CrossEntropyLoss(),
+              paddle.metric.Accuracy())
+
+model.fit(train_dataset,
+          epochs=5,
+          batch_size=64,
+          verbose=1)
+
+model.evaluate(val_dataset,verbose=1)
 
 ```
-```python
+3. 构建LeNet-5模型进行CIFAR10图像分类
 
+因为CIFAR10数据集颜色通道有3个，所以卷积层L1的输入通道数量（in_channels）需要设为3。全连接层fc1的输入维度设为400，这与上例设为84有所不同，原因是初始输入数据的形状不一样，经过卷积池化后，输出的数据形状是不一样的。如果是采用动态图开发模型，那么有一种便捷的方式查看中间结果的形状，即在forward()方法中，用print函数把中间结果的形状打印出来。根据中间结果的形状，决定接下来各网络层的参数。
+```python
+import paddle
+import paddle.nn.functional as F
+from paddle.vision.transforms import Compose, ToTensor
+
+transform = Compose([ToTensor()])
+#导入CIFAR10图像数据
+train_dataset=paddle.vision.datasets.Cifar10(mode="train", transform=transform)
+val_dataset=paddle.vision.datasets.Cifar10(mode="test", transform=transform)
+#定义模型
+class LeNetModel(paddle.nn.Layer):
+    def __init__(self):
+        super(LeNetModel, self).__init__()
+        # 创建卷积和池化层块，每个卷积层后面接着2x2的池化层
+        #卷积层L1
+        self.conv1 = paddle.nn.Conv2D(in_channels=3, #CIFAR10数据集有3个颜色通道
+                                      out_channels=6,
+                                      kernel_size=5,
+                                      stride=1,
+                                      data_format='NCHW')
+        #池化层L2
+        self.pool1 = paddle.nn.MaxPool2D(kernel_size=2,
+                                         stride=2)
+        #卷积层L3
+        self.conv2 = paddle.nn.Conv2D(in_channels=6,
+                                      out_channels=16,
+                                      kernel_size=5,
+                                      stride=1,
+                                      data_format='NCHW')
+        #池化层L4
+        self.pool2 = paddle.nn.MaxPool2D(kernel_size=2,
+                                         stride=2)
+        #线性层L5
+        self.fc1=paddle.nn.Linear(400,120) #需根据数据形状改写
+        #线性层L6
+        self.fc2=paddle.nn.Linear(120,84)
+        #线性层L7
+        self.fc3=paddle.nn.Linear(84,10)
+
+    #正向传播过程
+    def forward(self, x):
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = self.pool1(x)
+        x = F.relu(x)
+        x = self.conv2(x)
+        x = self.pool2(x)
+        x = paddle.flatten(x, start_axis=1,stop_axis=-1)
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        out = self.fc3(x)
+        return out
+
+model=paddle.Model(LeNetModel())
+
+model.prepare(paddle.optimizer.Adam(parameters=model.parameters()),
+              paddle.nn.CrossEntropyLoss(),
+              paddle.metric.Accuracy())
+
+model.fit(train_dataset,
+          epochs=5,
+          batch_size=64,
+          verbose=1)
+
+model.evaluate(val_dataset,verbose=1)
 ```
 
 ## 作业
