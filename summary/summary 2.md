@@ -951,6 +951,8 @@ class RandCropImage(object):
         else:
             return cv2.resize(img, size, interpolation=self.interpolation)
             
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 crop = RandCropImage(350)
 plt.imshow(crop(img))
 ```
@@ -989,7 +991,9 @@ class RandomErasing(object):
                     img[x1:x1 + h, y1:y1 + w,0] = self.mean[0]
                 return img
         return img
-
+        
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 erase = RandomErasing()
 plt.imshow(erase(img))
 ```
@@ -1016,7 +1020,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 %matplotlib inline
 
-filename = '1.png'
+filename = 'lena.jpg'
 ## [Load an image from a file]
 img = cv2.imread(filename)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -1138,7 +1142,8 @@ class RandomErasing(object):
                     return img
             return img
 
-
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 erase = RandomErasing()
 img2=erase(img)
 plt.imshow(img2)    
