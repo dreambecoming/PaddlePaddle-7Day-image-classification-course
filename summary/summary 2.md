@@ -857,6 +857,7 @@ while(capture.isOpened()):
 ### 图像分类问题的经典数据集:
 MNIST手写数字识别  
 MNIST是一个手写体数字的图片数据集，该数据集来由美国国家标准与技术研究所（National Institute of Standards and Technology (NIST)）发起整理，一共统计了来自250个不同的人手写数字图片，其中50%是高中生，50%来自人口普查局的工作人员。该数据集的收集目的是希望通过算法，实现对手写数字的识别。[数据集链接](http://yann.lecun.com/exdb/mnist/)
+
 Cifar数据集
 * CIFAR-10
 CIFAR-10数据集由10个类的60000个32x32彩色图像组成，每个类有6000个图像。有50000个训练图像和10000个测试图像。    
@@ -870,17 +871,128 @@ ImageNet数据集
 * ImageNet数据集是一个计算机视觉数据集，是由斯坦福大学的李飞飞教授带领创建。该数据集包合 14,197,122张图片和21,841个Synset索引。Synset是WordNet层次结构中的一个节点，它又是一组同义词集合。ImageNet数据集一直是评估图像分类算法性能的基准。  
 * ImageNet 数据集是为了促进计算机图像识别技术的发展而设立的一个大型图像数据集。2016 年ImageNet 数据集中已经超过干万张图片，每一张图片都被手工标定好类别。ImageNet 数据集中的图片涵盖了大部分生活中会看到的图片类别。ImageNet最初是拥有超过100万张图像的数据集。如图下图所示，它包含了各种各样的图像，并且每张图像都被关联了标签（类别名）。每年都会举办使用这个巨大数据集的ILSVRC图像识别大赛。
 [http://image-net.org/download-imageurls](http://image-net.org/download-imageurls)
-    
-    
-    
-```python
 
-```
-
-```python
-
-```
 ## PaddleClas数据增强代码解析
+```python
+# 创建一副图片
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+```
+
+```python
+class RandFlipImage(object):
+    """ random flip image 随机翻转图片
+        flip_code:
+            1: Flipped Horizontally 水平翻转
+            0: Flipped Vertically 上下翻转
+            -1: Flipped Horizontally & Vertically 水平、上下翻转
+    """
+
+    def __init__(self, flip_code=1):
+        # 设置一个翻转参数，1、0或-1
+        assert flip_code in [-1, 0, 1
+                             ], "flip_code should be a value in [-1, 0, 1]"
+        self.flip_code = flip_code
+
+    def __call__(self, img):
+        # 随机生成0或1（即是否翻转）
+        if random.randint(0, 1) == 1:
+            return cv2.flip(img, self.flip_code)
+        else:
+            return img
+
+# 初始化实例，默认随机水平翻转
+flip = RandFlipImage()
+plt.imshow(flip(img))
+```
+```python
+class RandCropImage(object):
+    """ random crop image """
+    """ 随机裁剪图片 """
+
+    def __init__(self, size, scale=None, ratio=None, interpolation=-1):
+
+        self.interpolation = interpolation if interpolation >= 0 else None
+        if type(size) is int:
+            self.size = (size, size)  # (h, w)
+        else:
+            self.size = size
+
+        self.scale = [0.08, 1.0] if scale is None else scale
+        self.ratio = [3. / 4., 4. / 3.] if ratio is None else ratio
+
+    def __call__(self, img):
+        size = self.size
+        scale = self.scale
+        ratio = self.ratio
+
+        aspect_ratio = math.sqrt(random.uniform(*ratio))
+        w = 1. * aspect_ratio
+        h = 1. / aspect_ratio
+
+        img_h, img_w = img.shape[:2]
+
+        bound = min((float(img_w) / img_h) / (w**2),
+                    (float(img_h) / img_w) / (h**2))
+        scale_max = min(scale[1], bound)
+        scale_min = min(scale[0], bound)
+
+        target_area = img_w * img_h * random.uniform(scale_min, scale_max)
+        target_size = math.sqrt(target_area)
+        w = int(target_size * w)
+        h = int(target_size * h)
+
+        i = random.randint(0, img_w - w)
+        j = random.randint(0, img_h - h)
+
+        img = img[j:j + h, i:i + w, :]
+        if self.interpolation is None:
+            return cv2.resize(img, size)
+        else:
+            return cv2.resize(img, size, interpolation=self.interpolation)
+            
+crop = RandCropImage(350)
+plt.imshow(crop(img))
+```
+```python
+
+class RandomErasing(object):
+    def __init__(self, EPSILON=0.5, sl=0.02, sh=0.4, r1=0.3,
+                 mean=[0., 0., 0.]):
+        self.EPSILON = EPSILON
+        self.mean = mean
+        self.sl = sl
+        self.sh = sh
+        self.r1 = r1
+
+    def __call__(self, img):
+        if random.uniform(0, 1) > self.EPSILON:
+            return img
+
+        for attempt in range(100):
+            area = img.shape[0] * img.shape[1]
+
+            target_area = random.uniform(self.sl, self.sh) * area
+            aspect_ratio = random.uniform(self.r1, 1 / self.r1)
+
+            h = int(round(math.sqrt(target_area * aspect_ratio)))
+            w = int(round(math.sqrt(target_area / aspect_ratio)))
+
+            if w < img.shape[0] and h < img.shape[1]:
+                x1 = random.randint(0, img.shape[1] - h)
+                y1 = random.randint(0, img.shape[0] - w)
+                if img.shape[2] == 3:
+                    img[ x1:x1 + h, y1:y1 + w, 0] = self.mean[0]
+                    img[ x1:x1 + h, y1:y1 + w, 1] = self.mean[1]
+                    img[ x1:x1 + h, y1:y1 + w, 2] = self.mean[2]
+                else:
+                    img[x1:x1 + h, y1:y1 + w,0] = self.mean[0]
+                return img
+        return img
+
+erase = RandomErasing()
+plt.imshow(erase(img))
+```
 
 ## 作业
 用课程所学内容实现各类图像增广
