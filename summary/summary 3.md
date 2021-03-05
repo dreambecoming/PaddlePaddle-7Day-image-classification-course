@@ -232,8 +232,75 @@ $\theta \leftarrow \theta-\frac{\lambda }{m}\sum_{i=1}^{m}\bigtriangledown _{\ma
 ### SoftMax分类器
 [SoftMax分类器](https://aistudio.baidu.com/aistudio/projectdetail/1323298)
 
+SoftMax分类器是根据输入特征来对离散型输出概率做出预测的模型，适用于多分类预测问题。
+
+1. 模型表达式
+
+以手写数字分类为例构建一个分类器，根据手写数字的光学识别图片来预测这张图片所包含的数字。每个图片样本的宽与高均为28像素，28乘以28得到784，可以把这784个像素看作为输入特征，用$x_{1},x_{2},...,x_{784}$表示。每个样本的标签值是0~9十个数字中的一个。与线性回归模型不同的是，SoftMax分类器最终输出的是样本在每个类别上的概率，用$y_{1},y_{2},...,y_{10}$表示。
+模型共有784个输入特征和10个输出类别，每个输入特征与输出类别全连接，所以权重包含7840个标量。这些权重可看作为行数为784、列数为10的矩阵$\mathbf{w}$。偏置项可看作为行数为1、列数为10的矩阵$\mathbf{b}$。
+
+$\mathbf{w} \in \mathbb{R}^{784 \times 10}$
+
+$\mathbf{b} \in \mathbb{R}^{1 \times 10}$
+
+对于第$i$个样本$\mathbf{x}^{i} \in \mathbb{R}^{1 \times 784}$，输入特征与权重的线性加权求和表示为：
+
+$\mathbf{o}^{i}=\mathbf{x}^{i} \mathbf{w} + \mathbf{b}$
+
+$\mathbf{o}^{i}=\left [ o_{1}^{i}, o_{2}^{i},..., o_{10}^{i}\right ]$
+
+其中，$\mathbf{o} \in \mathbb{R}^{n \times 10}$
+
+接下来，进行SoftMax运算，把经过线性加权后的输出值转变成概率分布。
+
+$softmax(o_{q})=\frac{exp(o_{q})}{\sum_{q=1}^{10}exp(o_{q})}$
+
+其中，$q$为最终输出的类别个数，在手写数字分类任务中，类别数为10。从上式中可看出，每个样本的预测值在十个类别（数字0~9）概率之和都等于1.
+
+2. 信息量
+
+信息论创始人Shannon在“通讯的数学理论”一文中指出“信息是用来消除随机不确定性的东西”。信息量衡量的是某个具体事件发生所带来的信息，信息量大小就是这个信息消除不确定性的程度。
+
+3. 信息熵
+
+信息熵是所有可能发生事件所带来的信息量的期望。信息熵越大，代表事物越具不确定性。设$X$是一个离散型随机变量，类别个数为$q$，信息熵表示为：
+
+$E(\mathbf{X})=-\sum_{i=1}^{q}P(x_{i})ln(P(x_{i})), \mathbf{X}=x_{1},x_{2},...,x_{q}$
+
+4. 交叉熵
+
+交叉熵主要用于衡量估计值与真实值之间的差距。
+
+$E(y^{i},\hat{y}^{i})=-\sum_{j=1}^{q}y_{j}^{i}ln(\hat{y}_{j}^{i})$
+
+其中，$y^{i} \in \mathbb{R}^{q}$为真实值，$y_{j}^{i}$是$\mathbf{y}^{i}$中的元素（取值为0或1），$j=1,...,q$。$\hat{y}^{i} \in \mathbb{R}^{q}$是预测值，是模型预测在各类别上的概率分布。
+
+```python
+import paddle
+
+train_dataset=paddle.vision.datasets.MNIST(mode="train", backend="cv2") #训练数据集
+test_dataset=paddle.vision.datasets.MNIST(mode="test", backend="cv2") #测试数据集
+
+linear=paddle.nn.Sequential(
+        paddle.nn.Flatten(),#将[1,28,28]形状的图片数据改变形状为[1,784]
+        paddle.nn.Linear(784,10)
+        )
+#利用paddlepaddle2的高阶功能，可以大幅减少训练和测试的代码量
+model=paddle.Model(linear)
+model.prepare(paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters()),
+              paddle.nn.CrossEntropyLoss(), #交叉熵损失函数。线性模型+该损失函数，即softmax分类器。
+              paddle.metric.Accuracy(topk=(1,2)))
+model.fit(train_dataset, epochs=2, batch_size=64, verbose=1)
+
+model.evaluate(test_dataset,batch_size=64,verbose=1)
+```
+
 ### 多层感知机模型
 [多层感知机模型](https://aistudio.baidu.com/aistudio/projectdetail/1323886)
+
+
+
+
 
 ### 卷积网络LeNet-5
 [卷积网络LeNet-5](https://aistudio.baidu.com/aistudio/projectdetail/1329509)
