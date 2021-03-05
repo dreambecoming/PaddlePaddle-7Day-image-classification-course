@@ -405,7 +405,7 @@ plt.imshow(dst)
 ```
 ### 绘图功能
     绘制各种几何形状、添加文字
-    OpenCV函数：cv2.line(), cv2.circle(), cv2.rectangle(), cv2.ellipse(), cv2.putText()
+    OpenCV函数：cv2.line(), cv2.polylines()，cv2.circle(), cv2.rectangle(), cv2.ellipse(), cv2.putText()，cv2.polylines()
 
 绘制形状的函数有一些共同的参数，提前在此说明一下：
 
@@ -416,8 +416,470 @@ plt.imshow(dst)
 * thickness：线宽，默认为1；对于矩形/圆之类的封闭形状而言，传入-1表示填充形状
 * lineType：线的类型。默认情况下，它是8连接的。cv2.LINE_AA 是适合曲线的抗锯齿线。
 
-## 图像分类任务概念导入
+画线
+```python
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+# 画一条线宽为5的红色直线，参数2：起点，参数3：终点
+cv2.line(img, (0, 0), (800, 512), (255, 0, 0), 5)
+plt.imshow(img)
+```
+画矩形
+```python
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+# 画一个矩形，左上角坐标(40, 40)，右下角坐标(80, 80)，框颜色为绿色
+img1 = cv2.rectangle(img, (40, 40), (80, 80), (0, 255, 0),1) 
+
+# 画一个矩形，左上角坐标(40, 40)，右下角坐标(80, 80)，框颜色为绿色，填充这个矩形,CV_FILLED
+img2 = cv2.rectangle(img, (40, 40), (80, 80), (0, 255, 0),-1) 
+
+plt.subplot(121)
+plt.imshow(img1)
+plt.title('img1')
+plt.subplot(122)
+plt.imshow(img2)
+plt.title('img2')
+```
+添加文字
+
+使用cv2.putText()添加文字，它的参数也比较多，同样请对照后面的代码理解这几个参数：
+* 参数2：要添加的文本
+* 参数3：文字的起始坐标（左下角为起点）
+* 参数4：字体
+* 参数5：文字大小（缩放比例）
+
+```python
+# 添加文字，加载字体
+font = cv2.FONT_HERSHEY_SIMPLEX
+# 添加文字hello
+img = cv2.putText(img, 'hello', (10, 200), font,
+            4, (255, 255, 255), 2, lineType=cv2.LINE_AA)
+plt.imshow(img)
+```
+引入中文
+```python
+# 参考资料 https://blog.csdn.net/qq_41895190/article/details/90301459
+# 引入PIL的相关包
+from PIL import Image, ImageFont,ImageDraw
+from numpy import unicode
+
+def paint_chinese_opencv(im,chinese,pos,color):
+    img_PIL = Image.fromarray(cv2.cvtColor(im,cv2.COLOR_BGR2RGB))
+    # 加载中文字体
+    font = ImageFont.truetype('NotoSansCJKsc-Medium.otf',25)
+    # 设置颜色
+    fillColor = color
+    # 定义左上角坐标
+    position = pos
+    # 判断是否中文字符
+    if not isinstance(chinese,unicode):
+        # 解析中文字符
+        chinese = chinese.decode('utf-8')
+    # 画图
+    draw = ImageDraw.Draw(img_PIL)
+    # 画文字
+    draw.text(position,chinese,font=font,fill=fillColor)
+    # 颜色通道转换
+    img = cv2.cvtColor(np.asarray(img_PIL),cv2.COLOR_RGB2BGR)
+    return img
+```
+添加中文
+```python
+plt.imshow(paint_chinese_opencv(img,'中文',(100,100),(255,255,0)))
+```
+### 图像间数学运算
+    图片间的数学运算，如相加、按位运算等
+    OpenCV函数：cv2.add(), cv2.addWeighted(), cv2.bitwise_and()
+
+图片相加
+
+要叠加两张图片，可以用cv2.add()函数，相加两幅图片的形状（高度/宽度/通道数）必须相同。numpy中可以直接用res = img + img1相加，但这两者的结果并不相同：
+
+```python
+x = np.uint8([250])
+y = np.uint8([10])
+print(cv2.add(x, y))  # 250+10 = 260 => 255
+print(x + y)  # 250+10 = 260 % 256 = 4
+```
+图像混合
+
+图像混合cv2.addWeighted()也是一种图片相加的操作，只不过两幅图片的权重不一样，γ相当于一个修正值：
+
+dst=α×img1+β×img2+γdst = \alpha\times img1+\beta\times img2 + \gamma
+dst=α×img1+β×img2+γ
+```python
+img1 = cv2.imread('lena.jpg')
+img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+img2 = cv2.imread('cat.png')
+img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+img2 = cv2.resize(img2, (350, 350))
+# 两张图片相加
+res = cv2.add(img1, img2)
+# 两张图片加权相加
+res2 = cv2.addWeighted(img1, 0.6, img2, 0.4, 0)
+
+plt.subplot(131)
+plt.imshow(res)
+plt.title('cv2.add')
+plt.subplot(132)
+plt.imshow(img1+img2)
+plt.title('img1+img2')
+plt.subplot(133)
+plt.imshow(res2)
+plt.title('cv2.addWeighted')
+```
+按位操作
+
+    按位操作包括按位与/或/非/异或操作
+    cv2.bitwise_and(), cv2.bitwise_or(), cv2.bitwise_not(), cv2.bitwise_xor()
+
+如果将两幅图片直接相加会改变图片的颜色，如果用图像混合，则会改变图片的透明度，所以我们需要用按位操作。掩膜（mask）的概念：掩膜是用一副二值化图片对另外一幅图片进行局部的遮挡。掩膜图像白色区域是对需要处理图像像素的保留，黑色区域是对需要处理图像像素的剔除，其余按位操作原理类似只是效果不同而已。
+```python
+import cv2
+import matplotlib.pyplot as plt
+
+img1 = cv2.imread('lena.jpg')
+img2 = cv2.imread('logo.jpg')
+img2 = cv2.resize(img2, (350, 350)) # logo 图片比 lena 还大，转换成一样大
+
+rows, cols = img2.shape[:2]
+roi = img1[:rows, :cols]
+
+# 创建掩膜
+img2gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+# cv2.threshold(src, thresh, maxval, type[, dst]) → retval, dst 返回阈值和图像。cv2.THRESH_BINARY 大于阈值10 取 255，否则0
+ret, mask = cv2.threshold(img2gray, 240, 255, cv2.THRESH_BINARY) # mask 背景依然是白色，彩色logo是黑色
+mask_inv = cv2.bitwise_not(mask) # mask 背景黑色，彩色logo  白色
+
+# 保留除logo外的背景
+img2_bg = cv2.bitwise_and(roi, roi, mask=mask)
+img2_fg = cv2.bitwise_and(img2, img2, mask= mask_inv)
+dst = cv2.add(img2_bg, img2_fg)  # 进行融合
+img1[:rows, :cols] = dst  # 融合后放在原图上
+
+plt.subplot(151);plt.imshow(mask,'gray');plt.title('mask')
+plt.subplot(152);plt.imshow(mask_inv,'gray');plt.title('imask_inv')
+plt.subplot(153);plt.imshow(img2_bg);plt.title('img2_bg')
+plt.subplot(154);plt.imshow(img2_fg);plt.title('img2_fg')
+plt.subplot(155);plt.imshow(dst);plt.title('dst')
+```
+### 平滑图像
+    模糊/平滑图片来消除图片噪声
+    OpenCV函数：cv2.blur(), cv2.GaussianBlur(), cv2.medianBlur(), cv2.bilateralFilter()
+滤波与模糊
+
+关于滤波和模糊：
+* 它们都属于卷积，不同滤波方法之间只是卷积核不同（对线性滤波而言）
+* 低通滤波器是模糊，高通滤波器是锐化
+低通滤波器就是允许低频信号通过，在图像中边缘和噪点都相当于高频部分，所以低通滤波器用于去除噪点、平滑和模糊图像。高通滤波器则反之，用来增强图像边缘，进行锐化处理。
+
+    常见噪声有椒盐噪声和高斯噪声，椒盐噪声可以理解为斑点，随机出现在图像中的黑点或白点；高斯噪声可以理解为拍摄图片时由于光照等原因造成的噪声。
+
+均值滤波
+
+均值滤波是一种最简单的滤波处理，它取的是卷积核区域内元素的均值，用`cv2.blur()`实现，如3×3的卷积核：
+
+$$
+ kernel = \frac{1}{9}\left[
+ \begin{matrix}
+   1 & 1 & 1 \newline
+   1 & 1 & 1 \newline
+   1 & 1 & 1
+  \end{matrix}
+  \right]
+$$
+```python
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+blur = cv2.blur(img, (9, 9))  # 均值模糊
+plt.imshow(blur)
+```
+方框滤波
+
+方框滤波跟均值滤波很像，如3×3的滤波核如下：
+
+$$
+k = a\left[
+ \begin{matrix}
+   1 & 1 & 1 \newline
+   1 & 1 & 1 \newline
+   1 & 1 & 1
+  \end{matrix}
+  \right]
+$$
+
+用 cv2.boxFilter() 函数实现，当可选参数normalize为True的时候，方框滤波就是均值滤波，上式中的a就等于1/9；normalize为False的时候，a=1，相当于求区域内的像素和。
+```python
+# 前面的均值滤波也可以用方框滤波实现：normalize=True
+blur = cv2.boxFilter(img, -1, (9, 9), normalize=True)
+plt.imshow(blur)
+```
+高斯滤波
+
+前面两种滤波方式，卷积核内的每个值都一样，也就是说图像区域中每个像素的权重也就一样。高斯滤波的卷积核权重并不相同：中间像素点权重最高，越远离中心的像素权重越小。
+
+显然这种处理元素间权值的方式更加合理一些。图像是2维的，所以我们需要使用[2维的高斯函数](https://en.wikipedia.org/wiki/Gaussian_filter)，比如OpenCV中默认的3×3的高斯卷积核：
+
+$$
+k = \left[
+ \begin{matrix}
+   0.0625 & 0.125 & 0.0625 \newline
+   0.125 & 0.25 & 0.125 \newline
+   0.0625 & 0.125 & 0.0625
+  \end{matrix}
+  \right]
+$$
+OpenCV中对应函数为`cv2.GaussianBlur(src,ksize,sigmaX)`:
+参数3 σx值越大，模糊效果越明显。高斯滤波相比均值滤波效率要慢，但可以有效消除高斯噪声，能保留更多的图像细节，所以经常被称为最有用的滤波器。均值滤波与高斯滤波的对比结果如下（均值滤波丢失的细节更多）
+```python
+# 均值滤波vs高斯滤波
+gaussian = cv2.GaussianBlur(img, (9, 9), 1)  # 高斯滤波
+plt.imshow(gaussian)
+```
+中值滤波
+
+中值又叫中位数，是所有数排序后取中间的值。中值滤波就是用区域内的中值来代替本像素值，所以那种孤立的斑点，如0或255很容易消除掉，适用于去除椒盐噪声和斑点噪声。中值是一种非线性操作，效率相比前面几种线性滤波要慢。
+```python
+median = cv2.medianBlur(img, 9)  # 中值滤波
+plt.imshow(median)
+```
+双边滤波
+
+模糊操作基本都会损失掉图像细节信息，尤其前面介绍的线性滤波器，图像的边缘信息很难保留下来。然而，边缘（edge）信息是图像中很重要的一个特征，所以这才有了双边滤波。用cv2.bilateralFilter()函数实现：可以看到，双边滤波明显保留了更多边缘信息。
+```python
+blur = cv2.bilateralFilter(img, 9, 75, 75)  # 双边滤波
+plt.imshow(blur)
+```
+图像锐化
+```python
+kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], np.float32) #定义一个核
+dst = cv2.filter2D(img, -1, kernel=kernel)
+plt.imshow(dst)
+```
+边缘检测
+[Canny J . A Computational Approach To Edge Detection[J]. IEEE Transactions on Pattern Analysis and Machine Intelligence, 1986, PAMI-8(6):679-698.](https://www.computer.org/cms/Computer.org/Transactions%20Home%20Pages/TPAMI/PDFs/top_ten_6.pdf)
+
+     OpenCV函数：cv2.Canny()
+     
+Canny边缘检测方法常被誉为边缘检测的最优方法：
+
+cv2.Canny()进行边缘检测，参数2、3表示最低、高阈值。
+
+Canny边缘提取的具体步骤如下：
+
+1. 使用5×5高斯滤波消除噪声：
+
+边缘检测本身属于锐化操作，对噪点比较敏感，所以需要进行平滑处理。
+$$
+K=\frac{1}{256}\left[
+ \begin{matrix}
+   1 & 4 & 6 & 4 & 1 \newline
+   4 & 16 & 24 & 16 & 4  \newline
+   6 & 24 & 36 & 24 & 6  \newline
+   4 & 16 & 24 & 16 & 4  \newline
+   1 & 4 & 6 & 4 & 1
+  \end{matrix}
+  \right]
+$$
+2. 计算图像梯度的方向：
+
+首先使用Sobel算子计算两个方向上的梯度$ G_x $和$ G_y $，然后算出梯度的方向：
+$$
+\theta=\arctan(\frac{G_y}{G_x})
+$$
+保留这四个方向的梯度：0°/45°/90°/135°，有什么用呢？我们接着看。
+
+3. 取局部极大值：
+
+梯度其实已经表示了轮廓，但为了进一步筛选，可以在上面的四个角度方向上再取局部极大值
+
+4. 滞后阈值：
+
+经过前面三步，就只剩下0和可能的边缘梯度值了，为了最终确定下来，需要设定高低阈值：
+- 像素点的值大于最高阈值，那肯定是边缘
+- 同理像素值小于最低阈值，那肯定不是边缘
+- 像素值介于两者之间，如果与高于最高阈值的点连接，也算边缘，所以上图中C算，B不算
+
+Canny推荐的高低阈值比在2:1到3:1之间。
+
+```python
+# 先阈值分割后检测
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+_, thresh = cv2.threshold(img, 124, 255, cv2.THRESH_BINARY)
+edges = cv2.Canny(thresh, 30, 70)
+plt.imshow(edges)
+```
+### 腐蚀与膨胀
+    OpenCV函数：cv2.erode(), cv2.dilate(), cv2.morphologyEx()
+
+形态学操作其实就是改变物体的形状，比如腐蚀就是"变瘦"，膨胀就是"变胖"。
+
+#### 腐蚀
+
+腐蚀的效果是把图片"变瘦"，其原理是在原图的小区域内取局部最小值。因为是二值化图，只有0和255，所以小区域内有一个是0该像素点就为0。
+
+这样原图中边缘地方就会变成0，达到了瘦身目的
+
+OpenCV中用 cv2.erode() 函数进行腐蚀，只需要指定核的大小就行：
+```python
+img = cv2.imread('lena.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+kernel = np.ones((5, 5), np.uint8)
+erosion = cv2.erode(img, kernel)  # 腐蚀
+plt.imshow(erosion)
+```
+这个核也叫结构元素，因为形态学操作其实也是应用卷积来实现的。结构元素可以是矩形/椭圆/十字形，可以用 cv2.getStructuringElement() 来生成不同形状的结构元素，比如：
+
+```python
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))  # 矩形结构
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # 椭圆结构
+kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (5, 5))  # 十字形结构
+```
+#### 膨胀
+
+膨胀与腐蚀相反，取的是局部最大值，效果是把图片"变胖"：
+```python
+dilation = cv2.dilate(img, kernel)  # 膨胀
+plt.imshow(dilation)
+```
+开/闭运算 
+先腐蚀后膨胀叫开运算（因为先腐蚀会分开物体，这样容易记住），其作用是：分离物体，消除小区域。  
+闭运算则相反：先膨胀后腐蚀（先膨胀会使白色的部分扩张，以至于消除/"闭合"物体里面的小黑洞，所以叫闭运算）。  
+这类形态学操作用cv2.morphologyEx()函数实现
+```python
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))  # 定义结构元素
+opening = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)  # 开运算
+closing = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)  # 闭运算
+
+plt.subplot(121);plt.imshow(closing);plt.title('closing')
+plt.subplot(122);plt.imshow(opening);plt.title('opening')
+```
+### 使用OpenCV摄像头与加载视频
+    OpenCV函数：cv2.VideoCapture(), cv2.VideoWriter()
+```python
+import IPython
+# 加载视频
+IPython.display.Video('demo_video.mp4')
+```
+#### 打开摄像头
+
+要使用摄像头，需要使用`cv2.VideoCapture(0)`创建VideoCapture对象，参数0指的是摄像头的编号，如果你电脑上有两个摄像头的话，访问第2个摄像头就可以传入1，依此类推。
+
+``` python
+# 打开摄像头并灰度化显示
+import cv2
+
+capture = cv2.VideoCapture(0)
+
+while(True):
+    # 获取一帧
+    ret, frame = capture.read()
+    # 将这帧转换为灰度图
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    cv2.imshow('frame', gray)
+    if cv2.waitKey(1) == ord('q'):
+        break
+```
+
+`capture.read()`函数返回的第1个参数ret(return value缩写)是一个布尔值，表示当前这一帧是否获取正确。`cv2.cvtColor()`用来转换颜色，这里将彩色图转成灰度图。
+
+另外，通过`cap.get(propId)`可以获取摄像头的一些属性，比如捕获的分辨率，亮度和对比度等。propId是从0~18的数字，代表不同的属性，完整的属性列表可以参考：[VideoCaptureProperties](https://docs.opencv.org/4.0.0/d4/d15/group__videoio__flags__base.html#gaeb8dd9c89c10a5c63c139bf7c4f5704d)。也可以使用`cap.set(propId,value)`来修改属性值。比如说，我们在while之前添加下面的代码：
+
+``` python
+# 获取捕获的分辨率
+# propId可以直接写数字，也可以用OpenCV的符号表示
+width, height = capture.get(3), capture.get(4)
+print(width, height)
+
+# 以原分辨率的一倍来捕获
+capture.set(cv2.CAP_PROP_FRAME_WIDTH, width * 2)
+capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height * 2)
+```
+
+> 经验之谈：某些摄像头设定分辨率等参数时会无效，因为它有固定的分辨率大小支持，一般可在摄像头的资料页中找到。
+
+#### 播放本地视频
+
+跟打开摄像头一样，如果把摄像头的编号换成视频的路径就可以播放本地视频了。回想一下`cv2.waitKey()`，它的参数表示暂停时间，所以这个值越大，视频播放速度越慢，反之，播放速度越快，通常设置为25或30。
+
+```python
+# 播放本地视频
+capture = cv2.VideoCapture('demo_video.mp4')
+
+while(capture.isOpened()):
+    ret, frame = capture.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    cv2.imshow('frame', gray)
+    if cv2.waitKey(30) == ord('q'):
+        break
+```
+
+#### 录制视频
+
+之前我们保存图片用的是`cv2.imwrite()`，要保存视频，我们需要创建一个`VideoWriter`的对象，需要给它传入四个参数：
+
+- 输出的文件名，如'output.avi'
+- 编码方式[FourCC](https://baike.baidu.com/item/fourcc/6168470?fr=aladdin)码
+- 帧率[FPS](https://baike.baidu.com/item/FPS/3227416)
+- 要保存的分辨率大小
+
+FourCC是用来指定视频编码方式的四字节码，所有的编码可参考[Video Codecs](http://www.fourcc.org/codecs.php)。如MJPG编码可以这样写： `cv2.VideoWriter_fourcc(*'MJPG')`或`cv2.VideoWriter_fourcc('M','J','P','G')`
+
+```python
+capture = cv2.VideoCapture(0)
+
+# 定义编码方式并创建VideoWriter对象
+fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+outfile = cv2.VideoWriter('output.avi', fourcc, 25., (640, 480))
+
+while(capture.isOpened()):
+    ret, frame = capture.read()
+
+    if ret:
+        outfile.write(frame)  # 写入文件
+        cv2.imshow('frame', frame)
+        if cv2.waitKey(1) == ord('q'):
+            break
+    else:
+        break
+```
+## 图像分类任务概念导入
+### 计算机视觉的子任务:
+* Image Classification： 图像分类，用于识别图像中物体的类别（如：bottle、cup、cube）。
+* Object Localization： 目标检测，用于检测图像中每个物体的类别，并准确标出它们的位置。
+* Semantic Segmentation： 图像语义分割，用于标出图像中每个像素点所属的类别，属于同一类别的像素点用一个颜色标识。
+* Instance Segmentation： 实例分割，值得注意的是，目标检测任务只需要标注出物体位置，实例分割任务不仅要标注出物体位置，还需要标注出物体的外形轮廓。
+### 图像分类问题的经典数据集:
+MNIST手写数字识别  
+MNIST是一个手写体数字的图片数据集，该数据集来由美国国家标准与技术研究所（National Institute of Standards and Technology (NIST)）发起整理，一共统计了来自250个不同的人手写数字图片，其中50%是高中生，50%来自人口普查局的工作人员。该数据集的收集目的是希望通过算法，实现对手写数字的识别。[数据集链接](http://yann.lecun.com/exdb/mnist/)
+Cifar数据集
+* CIFAR-10
+CIFAR-10数据集由10个类的60000个32x32彩色图像组成，每个类有6000个图像。有50000个训练图像和10000个测试图像。    
+数据集分为五个训练批次和一个测试批次，每个批次有10000个图像。测试批次包含来自每个类别的恰好1000个随机选择的图像。训练批次以随机顺序包含剩余图像，但一些训练批次可能包含来自一个类别的图像比另一个更多。总体来说，五个训练集之和包含来自每个类的正好5000张图像。    
+[CIFAR-10 python版本](http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz)   
+* CIFAR-100
+CIFAR-100数据集就像CIFAR-10，除了它有100个类，每个类包含600个图像。，每类各有500个训练图像和100个测试图像。CIFAR-100中的100个类被分成20个超类。每个图像都带有一个“精细”标签（它所属的类）和一个“粗糙”标签（它所属的超类）    
+[CIFAR-100 python版本](http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz)    
+
+ImageNet数据集
+* ImageNet数据集是一个计算机视觉数据集，是由斯坦福大学的李飞飞教授带领创建。该数据集包合 14,197,122张图片和21,841个Synset索引。Synset是WordNet层次结构中的一个节点，它又是一组同义词集合。ImageNet数据集一直是评估图像分类算法性能的基准。  
+* ImageNet 数据集是为了促进计算机图像识别技术的发展而设立的一个大型图像数据集。2016 年ImageNet 数据集中已经超过干万张图片，每一张图片都被手工标定好类别。ImageNet 数据集中的图片涵盖了大部分生活中会看到的图片类别。ImageNet最初是拥有超过100万张图像的数据集。如图下图所示，它包含了各种各样的图像，并且每张图像都被关联了标签（类别名）。每年都会举办使用这个巨大数据集的ILSVRC图像识别大赛。
+[http://image-net.org/download-imageurls](http://image-net.org/download-imageurls)
+    
+    
+    
+```python
+
+```
+
+```python
+
+```
 ## PaddleClas数据增强代码解析
 
 ## 作业
