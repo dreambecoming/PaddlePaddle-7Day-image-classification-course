@@ -223,30 +223,123 @@ print('加载完成')
 ```
 ### 2.网络配置
 以下的代码判断就是定义一个简单的多层感知器，一共有三层，两个大小为100的隐层和一个大小为10的输出层，因为MNIST数据集是手写0到9的灰度图像，类别有10个，所以最后的输出大小是10。最后输出层的激活函数是Softmax，所以最后的输出层相当于一个分类器。加上一个输入层的话，多层感知器的结构是：输入层-->>隐层-->>隐层-->>输出层。
-```python
 
+补全代码，参考课件，直接补全multilayer_perceptron类。
+```python
+import paddle
+import paddle.nn.functional as F
+from paddle.vision.transforms import ToTensor
 ```
 
 ```python
+# 定义多层感知器 
+#动态图定义多层感知器
+class multilayer_perceptron(paddle.nn.Layer):
+    def __init__(self):
+        super(multilayer_perceptron,self).__init__()
+        #请在这里补全网络代码
+        self.flatten=paddle.nn.Flatten()
+        self.hidden=paddle.nn.Linear(in_features=784,out_features=128)
+        self.output=paddle.nn.Linear(in_features=128,out_features=10)
 
+    def forward(self, x):
+        #请在这里补全传播过程的代码
+        x=self.flatten(x)
+        x=self.hidden(x) #经过隐藏层
+        x=F.relu(x) #经过激活层
+        x=self.output(x)
+        return x
+    
+model=paddle.Model(multilayer_perceptron())
+
+model.prepare(paddle.optimizer.Adam(parameters=model.parameters()),
+              paddle.nn.CrossEntropyLoss(),
+              paddle.metric.Accuracy())
+
+model.fit(train_dataset,
+          epochs=5,
+          batch_size=64,
+          verbose=1)
+
+model.evaluate(test_dataset,verbose=1)
+```
+运行出结果：{'loss': [0.0003590036], 'acc': 0.9684}
+
+接下来完成作业要求2，自己定义一个模型，训练、预测、评估。
+
+LeNet-5模型;
+```python
+import paddle.nn as nn
+
+class LeNet(nn.Layer):
+    """
+    继承paddle.nn.Layer定义网络结构
+    """
+
+    def __init__(self, num_classes=10):
+        """
+        初始化函数
+        """
+        super(LeNet, self).__init__()
+
+        self.features = nn.Sequential(
+            nn.Conv2D(in_channels=1, out_channels=6, kernel_size=3, stride=1, padding=1),  # 第一层卷积
+            nn.ReLU(), # 激活函数
+            nn.MaxPool2D(kernel_size=2, stride=2),  # 最大池化，下采样
+            nn.Conv2D(in_channels=6, out_channels=16, kernel_size=5, stride=1, padding=0), # 第二层卷积
+            nn.ReLU(), # 激活函数
+            nn.MaxPool2D(kernel_size=2, stride=2) # 最大池化，下采样
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(400, 120),  # 全连接
+            nn.Linear(120, 84),   # 全连接
+            nn.Linear(84, num_classes) # 输出层
+        )
+
+    def forward(self, inputs):
+        """
+        前向计算
+        """
+        y = self.features(inputs)
+        y = paddle.flatten(y, 1)
+        out = self.fc(y)
+
+        return out
 ```
 
 ```python
+from paddle.metric import Accuracy
 
+# 用Model封装模型
+model = paddle.Model(LeNet())   
+
+# 定义损失函数
+optim = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+
+# 配置模型
+model.prepare(optim,paddle.nn.CrossEntropyLoss(),paddle.metric.Accuracy())
+
+# 训练保存并验证模型
+model.fit(train_dataset,test_dataset,epochs=2,batch_size=64,save_dir='multilayer_perceptron',verbose=1)
 ```
 
 ```python
-
+#获取测试集的第一个图片
+test_data0, test_label_0 = test_dataset[0][0],test_dataset[0][1]
+test_data0 = test_data0.reshape([28,28])
+plt.figure(figsize=(2,2))
+#展示测试集中的第一个图片
+print(plt.imshow(test_data0, cmap=plt.cm.binary))
+print('test_data0 的标签为: ' + str(test_label_0))
+#模型预测
+result = model.predict(test_dataset, batch_size=1)
+#打印模型预测的结果
+print('test_data0 预测的数值为：%d' % np.argsort(result[0][0])[0][-1])
 ```
-
+预测的是数字“7”
 ```python
-
+model.evaluate(test_dataset,verbose=1)
 ```
+评估输出：{'loss': [6.807082e-05], 'acc': 0.9837}
 
-```python
-
-```
-
-```python
-
-```
