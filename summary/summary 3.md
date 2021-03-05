@@ -161,6 +161,73 @@ plt.subplot(122);plt.plot(x,y1);plt.title('personnally think right');plt.scatter
 ## 建模实战
 ### 线性回归
 [线性回归](https://aistudio.baidu.com/aistudio/projectdetail/1322247)
+1. 表达式
+
+当样本数为$n$，特征数为$k$时，线性回归模型的表达式为：
+
+$\mathbf{\hat{y}}=\mathbf{Xw}+b$
+   
+其中，线性回归模型的输出形状大小为$\mathbf{\hat{y}}\in \mathbb{R}^{n \times 1}$，样本特征形状大小为$\mathbf{X}\in \mathbb{R}^{n \times k}$，权重形状大小为$\mathbf{w}\in \mathbb{R}^{k \times 1}$，偏置项为$b\in\mathbb{R}^{1}$，设模型的参数为$\mathbf{\theta}= \left [ \mathbf{w},b\right ]^{T}$，加偏置项$b \in \mathbb{R}^{1}$采用了广播机制。
+
+为什么模型需要加截距项呢？因为如果模型不添加截距项，估计出来的模型将一定会通过原点，即在$\mathbf{x}$取值为0时，$\mathbf{y}$的估计值也是0。为了消除这个模型设定偏误，我们在模型中添加截距项，这使得模型估计既有可能通过原点，也有可能不通过原点，提升了模型的适用范围。
+
+2. 均方损失函数
+
+$L$可以看成是以$\mathbf{w},b$为参数的函数。二次函数求导会使得项式前乘以2，为了使得导数表达式更简洁，通常会在二次误差项前面乘以1/2。
+
+单个样本$i$的损失： $L^{i}\left ( \mathbf{w},\mathbf{b}\right )=\frac{1}{2}\left ( \hat{y}^{i}-y^{i}\right )^{2}$
+
+全部样本损失：$L \left ( \mathbf{w},\mathbf{b}\right )=\frac{1}{2n}\left ( \hat{y}^{i}-y^{i}\right )^{2}$
+
+在模型训练过程中，我们最终的目标是要找到一组参数$\left ( \mathbf{w^{*}},\mathbf{b^{*}}\right )$，使得训练数据集上的全部样本损失尽可能小。
+
+$\mathbf{w^{*}},\mathbf{b^{*}} = argmin L \left ( \mathbf{w},\mathbf{b} \right )$
+
+损失函数又可以写成矢量表达式：
+
+$L \left ( \mathbf{\theta} \right )=\frac{1}{2n} \left ( \mathbf{\hat{y}}-\mathbf{y} \right )^{T}\left ( \mathbf{\hat{y}}-\mathbf{y} \right )$
+
+其中，线性回归模型的输出形状大小为$\mathbf{\hat{y}}\in \mathbb{R}^{n \times 1}$，样本标签的形状大小为$\mathbf{y}\in \mathbb{R}^{n \times 1}$，样本数量为$n$.
+
+3. 解析优化与随机梯度下降
+
+* 解析方法，它适用于损失函数形式较为简单的场景。
+
+$L \left ( \theta \right )=\frac{1}{2n} \left ( \mathbf{\hat{y}}-\mathbf{y} \right )^{T}\left ( \mathbf{\hat{y}}-\mathbf{y} \right ) = \frac{1}{2n} \left ( \mathbf{Xw}+b-\mathbf{y} \right )^{T}\left ( \mathbf{Xw}+b-\mathbf{y} \right )$
+
+在样本特征矩阵$\mathbf{X}$上增加一个全为1的列，于是新的样本特征矩阵为$\tilde{X} \in \mathbb{R}^{n \times (k+1)}$，上式可以简化为：
+
+$L \left ( \theta \right )=\frac{1}{2n} \left ( \mathbf{\tilde{X} \theta}-\mathbf{y} \right )^{T}\left ( \mathbf{\tilde{X} \theta}-\mathbf{y} \right )$
+
+其中，$\mathbf{\theta} =\left [ \mathbf{w},\mathbf{b} \right ]^{T}$.
+
+将上式对$\mathbf{\theta}$求梯度，得到：
+
+$\bigtriangledown _{\mathbf{\theta}}L(\mathbf{\theta})=\frac{1}{n}\mathbf{\tilde{X}}^{T}(\mathbf{\tilde{X} \theta}-\mathbf{y})$
+
+令上式为零，解出$\mathbf{\theta}$为：
+
+$\hat{\mathbf{\theta} }=\left ( \mathbf{\tilde{X}}^{T}\mathbf{\tilde{X}}\right )^{-1}\mathbf{\tilde{X}}^{T}\mathbf{y}$
+
+* 梯度下降
+
+通常有4个步骤：一是选择模型参数值。如果是首轮迭代，可以采用随机方式选取初始值；如果是非首轮迭代，可以选择上一轮迭代更新的参数值。二是在训练数据集中选取一批样本组成小批量集合（Batch Set），小批量中的样本个数通常是固定的，用$m$来代表小批量中样本的个数。三是把模型参数初始值与小批量中的样本数据，都代入模型，$n$替换成$m$，得到损失函数值。损失函数以$(\mathbf{w}, b)$为参数，把损失函数分别对$(\mathbf{w}, b)$参数求偏导数。四是用求出的三个偏导数与预先设定的一个正数（学习率）相乘作为本轮迭代中的减少量。
+
+$w_{1}\leftarrow w_{1}-\frac{\lambda }{m}\sum_{i=1}^{m}\frac{\partial L^{i}(w_{1},w_{2},b)}{\partial w_{1}}$
+
+$w_{2}\leftarrow w_{2}-\frac{\lambda }{m}\sum_{i=1}^{m}\frac{\partial L^{i}(w_{1},w_{2},b)}{\partial w_{2}}$
+
+$b\leftarrow b-\frac{\lambda }{m}\sum_{i=1}^{m}\frac{\partial L^{i}(w_{1},w_{2},b)}{\partial b}$
+
+其中，批量大小$m$和学习率$\lambda$是超参数，并不是通过模型训练得出，需要根据经验来提前设定。
+上述过程的矢量计算表达式为：
+
+$\theta \leftarrow \theta-\frac{\lambda }{m}\sum_{i=1}^{m}\bigtriangledown _{\mathbf{\theta}}L^{i}(\mathbf{\theta})$
+
+模型训练完成后，将得到参数$\mathbf{\hat{\theta}}$，$\mathbf{\hat{\theta}}$参数可以看成真实${\mathbf{\theta}}$的最佳估计。接下来把$\mathbf{\hat{\theta}}$参数代入线性回归模型，待预测样本的输入特征分别乘以回归系数（权重）后加和即可得到输出，该输出便是预测值。
+
+* 截距项的功能等将来碰上了应用再研究。
+* 其中数学推导，将来会进行手工复现的。
 
 ### SoftMax分类器
 [SoftMax分类器](https://aistudio.baidu.com/aistudio/projectdetail/1323298)
