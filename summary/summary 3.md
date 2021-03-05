@@ -7,6 +7,7 @@
 
 ****
 ## 目录
+* [感知机](#感知机)
 * [基础理论](#基础理论)
 * [建模实战](#建模实战)
 * [作业](#作业)
@@ -15,6 +16,138 @@
 
 
 # 课节3：图像分类基础
+## 感知机
+[感知机](https://aistudio.baidu.com/aistudio/projectdetail/1615953)
+
+感知机（perceptron）是二分类的线性分类模型，属于监督学习算法。输入为实例的特征向量，输出为实例的类别（取+1和-1）。
+
+感知机对应于输入空间中将实例划分为两类的分离超平面。感知机旨在求出该超平面，为求得超平面导入了基于误分类的损失函数，利用梯度下降法 对损失函数进行最优化（最优化）。
+
+感知机的学习算法具有简单而易于实现的优点，分为原始形式和对偶形式。感知机预测是用学习得到的感知机模型对新的实例进行预测的，因此属于判别模型。
+
+感知机由Rosenblatt于1957年提出的，是神经网络和支持向量机的基础。
+
+### 定义
+
+假设输入空间(特征向量)为X=[x1,x2,x3,x......]，输出空间为Y = [1,-1]。
+
+输入 = X
+
+表示实例的特征向量，对应于输入空间的点；
+
+输出 = Y
+
+表示示例的类别。
+
+由输入空间到输出空间的函数为
+
+$f(x)=sign(w^Tx+b)$
+
+称为感知机。其中，参数w叫做权值向量(weight)，b称为偏置(bias)。表示$w^T$和x的点积
+
+$\mathbf{w}^{T} \mathbf{x} =w_1*x_1+w_2*x_2+w_3*x_3+...+w_n*x_n$ 
+，$\mathbf{w} = [w_1, w_2,...,w_n]^{T}$
+，$\mathbf{x} = [x_1, x_2,...,x_n]^{T}$
+
+sign为符号函数，即
+
+$sign(A)=\left\{\begin{matrix}+1，A \geq 0\\-1，A<0\end{matrix}\right.$
+
+感知机算法就是要找到一个超平面将我们的数据分为两部分。
+
+超平面就是维度比我们当前维度空间小一个维度的空间
+```python
+#引入必要的包
+import paddle
+print("本教程使用的paddle版本为：" + paddle.__version__)
+import numpy as np
+import matplotlib.pyplot as plt
+```
+```python
+# 数据准备
+# 机数种子，每次生成的随机数相同
+np.random.seed(0)
+num=100
+
+#生成数据集x1,x2,y0/1
+#随机生成100个x1
+# numpy.random.normal(loc=0.0, scale=1.0, size=None) normal正态分布，loc均值、scale标准差、size输出大小
+x1=np.random.normal(6,1,size=(num))
+#随机生成100个x2
+x2=np.random.normal(3,1,size=(num))
+#生成100个y
+y=np.ones(num)
+#将生成好的点放入到一个分类中
+# class1.shape:(3, 100)
+class1=np.array([x1,x2,y])
+
+#接下来生成第二类点，原理跟第一类一样
+x1=np.random.normal(3,1,size=(num))
+x2=np.random.normal(6,1,size=(num))
+y=np.ones(num)*(-1)
+class2=np.array([x1,x2,y])
+
+# 转置成(100, 3)
+class1=class1.T
+class2=class2.T
+
+#将两类数据都放到一个变量里面，(200, 3)
+all_data = np.concatenate((class1,class2))
+
+#将数据打乱
+np.random.shuffle(all_data)
+
+#截取出坐标数据
+train_data_x=all_data[:150,:2]
+#截取出标签数据
+train_data_y=all_data[:150,-1].reshape(150,1)
+
+#将数据转化为tensor形式
+x_data = paddle.to_tensor(train_data_x.astype('float32'))
+y_data = paddle.to_tensor(train_data_y.astype('float32'))
+```
+```python
+# 模型配置
+linear = paddle.nn.Linear(in_features=2, out_features=1)
+mse_loss = paddle.nn.MSELoss()
+sgd_optimizer = paddle.optimizer.SGD(learning_rate=0.001, parameters = linear.parameters())
+
+# 模型训练
+total_epoch = 50000
+#构建训练过程
+for i in range(total_epoch):
+    
+    y_predict = linear(x_data)
+    #获取loss
+    loss = mse_loss(y_predict, y_data)
+    #反向传播
+    loss.backward()
+    sgd_optimizer.step()
+    sgd_optimizer.clear_grad()
+    #w1
+    w1_after_opt = linear.weight.numpy()[0].item()
+    #w2
+    w2_after_opt = linear.weight.numpy()[1].item()
+    #b
+    b_after_opt = linear.bias.numpy().item()
+    #每1000次输出一次数据
+    if i%1000 == 0:
+        print("epoch {} loss {}".format(i, loss.numpy()))
+        print("w1 after optimize: {}".format(w1_after_opt))
+        print("w2 after optimize: {}".format(w2_after_opt))
+        print("b after optimize: {}".format(b_after_opt))
+print("finished training， loss {}".format(loss.numpy()))
+```
+```python
+x=np.arange(10)
+
+# 画线的公式（公式的推导课件没说，等到将来碰到了仔细研究吧，个人认为下面y1才是对的）
+y1=-(w1_after_opt * x + b_after_opt) / w2_after_opt
+y=-(w1_after_opt/w2_after_opt) *x + b_after_opt
+
+plt.subplot(121);plt.plot(x,y);plt.title('in the reference');plt.scatter(class1[:,0],class1[:,1]);plt.scatter(class2[:,0],class2[:,1],marker='*')
+plt.subplot(122);plt.plot(x,y1);plt.title('personnally think right');plt.scatter(class1[:,0],class1[:,1]);plt.scatter(class2[:,0],class2[:,1],marker='*')
+```
 
 ## 基础理论
 * 图像识别面临的挑战：  语义鸿沟：图像的底层视觉特性和高层语义概念之间的鸿沟
@@ -39,6 +172,12 @@
 [卷积网络LeNet-5](https://aistudio.baidu.com/aistudio/projectdetail/1329509)
 
 
+```python
+
+```
+```python
+
+```
 
 ## 作业
 作业要求：
