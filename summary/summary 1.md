@@ -377,9 +377,6 @@ NumPy(Numerical Python) 是 Python 语言的一个扩展程序库，支持大量
 
 彩图是uint8，[0,255]；灰度图float，[0,1]；
 
-彩图resize变成float，[0,1]；
-
-较混乱，不适用。。。
 
 ## 常见操作
 ### 读取
@@ -427,6 +424,60 @@ plt.show()
      [](https://i.stack.imgur.com/fRy1u.png)
      
 ### 转换
+主要是通过numpy的transpose操作，修正RGB，BGR；
+
+例如：
+
+a是rgb图像，那么
+
+a[::-1]，a[:,::-1]，a[:,:,::-1]分别是X轴的镜像，Y轴的镜像，BGR转换为RGB；
+```python
+# opencv相关图像操作；
+img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY) # BGR转灰度
+img_bgr = cv2.cvtColor(img_gray,cv2.COLOR_GRAY2BGR) # 灰度转BRG
+img_rgb = cv2.cvtColor(img_gray,cv2.COLOR_GRAY2RGB) # 灰度转RGB
+
+b,g,r = cv2.split(img) #bgr图像分离三个通道
+img2 = cv2.merge([r,g,b]) #merge成rgb图像
+```
+```python
+# PIL相关图像操作：
+img = Image.open('examples.png')
+img_gray = image.convert(‘L’)
+img_color = img_gray.convert(‘RGB’)
+```
+
+```python
+#PIL与numpy格式转换操作：
+numpy.asarray()
+Image.fromarray()
+```
+如果是pil转opencv，记得需要通过copy命令得到的才可以进行cv2操作，不然会有bug。
+
+PIL类型，尺寸信息，通过.size方法，得到WH；
+
+Numpy类型，通过shape方法，得到HWC
+### 保存
+```python
+# PIL
+# 直接save方法
+
+img = Image.open('examples.png')
+img.save('examples2.png')
+img_gray = img.convert('L')
+img_gray.save('examples_gray.png') # 不管是灰度还是彩色，直接用save函数保存就可以，但注意，只有PIL格式的图片能够用save函数
+```
+
+```python
+#cv2.imwrite
+
+import cv2
+img = cv2.imread('examples.png') # 这是BGR图片
+cv2.imwrite('examples2.png', img) # 这里也应该用BGR图片保存，这里要非常注意，因为用pylab或PIL读入的图片都是RGB的，如果要用opencv存图片就必须做一个转换
+img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+cv2.imwrite('examples_gray.png', img_gray)
+```
+
 ## 预习作业
 
 飞桨安装文档：https://paddlepaddle.org.cn/install/quick
