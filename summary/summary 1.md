@@ -382,8 +382,51 @@ NumPy(Numerical Python) 是 Python 语言的一个扩展程序库，支持大量
 较混乱，不适用。。。
 
 ## 常见操作
+### 读取
+```python
+# cv2 默认
+# 彩色图，默认值(1)，灰度图(0)，包含透明通道的彩色图(-1)
+img = cv2.imread('examples.png')
+img_gray = cv2.imread('examples.png', 0)
+img_unchanged = cv2.imread('examples.png', -1)
 
+PIL，Pillow, Pillow-SIMD
+img = Image.open('examples.png')
 
+Matplotlib
+img = plt.imread('examples.png')
+```
+### 显示
+```python
+# Matplotlib
+img = plt.imread('examples.png')
+plt.imshow(img)
+plt.show()
+
+# CV2
+img = cv2.imread('examples.png')
+plt.imshow(img[..., -1::-1]) # 因为opencv读取进来的是bgr顺序，而imshow需要的是rgb顺序，因此需要先反过来,也可以plt.imshow(img[:,:,::-1])
+plt.show()
+
+# PIL
+#可直接打开
+plt.imshow(Image.open('examples.png')) # 实际上plt.imshow可以直接显示PIL格式图像
+plt.show()
+
+# 转换为需要的numpy格式打开
+img_gray = img.convert('L') #转换成灰度图像
+img = np.array(img)
+img_gray = np.array(img_gray)
+plt.imshow(img) # or plt.imshow(img / 255.0)5
+plt.show()
+plt.imshow(img_gray, cmap=plt.gray()) # 显示灰度图要设置cmap参数
+plt.show()
+```
+* plt.imshow()函数负责对图像进行处理，并显示其格式，但是不能显示。其后跟着plt.show()才能显示出来。
+* cmap将标量数据映射到色彩图
+     [](https://i.stack.imgur.com/fRy1u.png)
+     
+### 转换
 ## 预习作业
 
 飞桨安装文档：https://paddlepaddle.org.cn/install/quick
