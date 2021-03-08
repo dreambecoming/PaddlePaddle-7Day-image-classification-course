@@ -149,10 +149,13 @@ Laplace算子
 ## 建模实战
 
 * 卷积网络模型AlexNet htps://aistudio.baidu.com/aistudio/projectdetail/1332790
+
 AlexNet模型由Hinton和Alex Krizhevsky开发，是2012年lmageNet挑战赛冠军模型。相比于LeNet模型，AlexNet的神经网络层数更多，其中包含ReLU激活层，并且在全连接层引入Dropout机制防止过拟合。
 * 并联卷积神经网络-GoogleNet htps:/aistudio.baidu.com/aistudio/proiectdetai/1340883
+
 GoogLeNet模型是由谷歌（Google）团队开发出来的卷积神经网络，它是2014年lmageNet挑战赛的冠军模型。相比于AlexNet模型，GoogLeNet模型的网络结构更深，共包括87层。尽管模型结构变得更复杂，但参数量更少了。
 * 残差网络-ResNet httes:/aistudio.baidu.com/aistudio/proiectdetail/1342659
+
 残差网络（ResNet）模型是由何凯明开发，它是2015年ImageNet ILSVRC-2015分类挑战赛的冠军模型。
 ResNet模型引入残差模块，它能够有效地消除由于模型层数增加而导致的梯度弥散或梯度爆炸问题。
 
