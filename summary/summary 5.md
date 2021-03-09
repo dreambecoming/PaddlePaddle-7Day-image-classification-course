@@ -448,6 +448,205 @@ label shuffling
 
 ![](https://ai-studio-static-online.cdn.bcebos.com/36dc85bab2c84602a04dec6fe7db3914a96c66546a7b4bb68f61b8eb77387c35)
 ```python
+# labelshuffling
+
+def labelShuffling(dataFrame, groupByName = 'class_num'):
+
+    groupDataFrame = dataFrame.groupby(by=[groupByName])
+    labels = groupDataFrame.size()
+    print("length of label is ", len(labels))
+    maxNum = max(labels)
+    lst = pd.DataFrame()
+    for i in range(len(labels)):
+        print("Processing label  :", i)
+        tmpGroupBy = groupDataFrame.get_group(i)
+        createdShuffleLabels = np.random.permutation(np.array(range(maxNum))) % labels[i]
+        print("Num of the label is : ", labels[i])
+        lst=lst.append(tmpGroupBy.iloc[createdShuffleLabels], ignore_index=True)
+        print("Done")
+    # lst.to_csv('test1.csv', index=False)
+    return lst
+```
+```python
+from sklearn.utils import shuffle
+
+# 读取数据
+train_images = pd.read_csv('data/data71799/lemon_lesson/train_images.csv', usecols=['id','class_num'])
+
+# 读取数据
+
+df = labelShuffling(train_images)
+df = shuffle(df)
+
+image_path_list = df['id'].values
+label_list = df['class_num'].values
+label_list = paddle.to_tensor(label_list, dtype='int64')
+label_list = paddle.nn.functional.one_hot(label_list, num_classes=4)
+
+# 划分训练集和校验集
+all_size = len(image_path_list)
+train_size = int(all_size * 0.8)
+train_image_path_list = image_path_list[:train_size]
+train_label_list = label_list[:train_size]
+val_image_path_list = image_path_list[train_size:]
+val_label_list = label_list[train_size:]
+```
+图像扩增
+
+&emsp;&emsp;为了获得更多数据，我们只需要对现有数据集进行微小改动。例如翻转剪裁等操作。对图像进行微小改动，模型就会认为这些是不同的图像。常用的有两种数据增广方法：
+第一个方法称为离线扩充。对于相对较小的数据集，此方法是首选。
+第二个方法称为在线增强，或即时增强。对于较大的数据集，此方法是首选。
+
+飞桨2.0中的预处理方法：
+
+&emsp;&emsp;在图像分类任务中常见的数据增强有翻转、旋转、随机裁剪、颜色噪音、平移等，具体的数据增强方法要根据具体任务来选择，要根据具体数据的特定来选择。对于不同的比赛来说数据扩增方法一定要反复尝试，会很大程度上影响模型精度。
+```python
+import numpy as np
+from PIL import Image
+from paddle.vision.transforms import RandomHorizontalFlip
+
+transform = RandomHorizontalFlip(224)
+
+fake_img = Image.fromarray((np.random.rand(300, 320, 3) * 255.).astype(np.uint8))
+
+fake_img = transform(fake_img)
+print(fake_img.size)
+```
+```python
+# 定义数据预处理
+data_transforms = T.Compose([
+    T.Resize(size=(224, 224)),
+    T.RandomHorizontalFlip(224),
+    T.RandomVerticalFlip(224),
+    T.Transpose(),    # HWC -> CHW
+    T.Normalize(
+        mean=[0, 0, 0],        # 归一化
+        std=[255, 255, 255],
+        to_rgb=True)    
+])
+```
+```python
+# 构建Dataset
+class MyDataset(paddle.io.Dataset):
+    """
+    步骤一：继承paddle.io.Dataset类
+    """
+    def __init__(self, train_img_list, val_img_list,train_label_list,val_label_list, mode='train'):
+        """
+        步骤二：实现构造函数，定义数据读取方式，划分训练和测试数据集
+        """
+        super(MyDataset, self).__init__()
+        self.img = []
+        self.label = []
+        # 借助pandas读csv的库
+        self.train_images = train_img_list
+        self.test_images = val_img_list
+        self.train_label = train_label_list
+        self.test_label = val_label_list
+        if mode == 'train':
+            # 读train_images的数据
+            for img,la in zip(self.train_images, self.train_label):
+                self.img.append('data/data71799/lemon_lesson/train_images/'+img)
+                self.label.append(la)
+        else:
+            # 读test_images的数据
+            for img,la in zip(self.train_images, self.train_label):
+                self.img.append('data/data71799/lemon_lesson/train_images/'+img)
+                self.label.append(la)
+
+    def load_img(self, image_path):
+        # 实际使用时使用Pillow相关库进行图片读取即可，这里我们对数据先做个模拟
+        image = Image.open(image_path).convert('RGB')
+        return image
+
+    def __getitem__(self, index):
+        """
+        步骤三：实现__getitem__方法，定义指定index时如何获取数据，并返回单条数据（训练数据，对应的标签）
+        """
+        image = self.load_img(self.img[index])
+        label = self.label[index]
+        # label = paddle.to_tensor(label)
+        
+        return data_transforms(image), paddle.nn.functional.label_smooth(label)
+
+    def __len__(self):
+        """
+        步骤四：实现__len__方法，返回数据集总数目
+        """
+        return len(self.img)
+```
+```python
+#train_loader
+train_dataset = MyDataset(train_img_list=train_image_path_list, val_img_list=val_image_path_list, train_label_list=train_label_list, val_label_list=val_label_list, mode='train')
+train_loader = paddle.io.DataLoader(train_dataset, places=paddle.CPUPlace(), batch_size=32, shuffle=True, num_workers=0)
+
+#val_loader
+val_dataset = MyDataset(train_img_list=train_image_path_list, val_img_list=val_image_path_list, train_label_list=train_label_list, val_label_list=val_label_list, mode='test')
+val_loader = paddle.io.DataLoader(train_dataset, places=paddle.CPUPlace(), batch_size=32, shuffle=True, num_workers=0)
+```
+### 模型训练部分
+
+* 标签平滑（LSR）
+
+&emsp;&emsp;在分类问题中，一般最后一层是全连接层，然后对应one-hot编码，这种编码方式和通过降低交叉熵损失来调整参数的方式结合起来，会有一些问题。这种方式鼓励模型对不同类别的输出分数差异非常大，或者说模型过分相信他的判断，但是由于人工标注信息可能会出现一些错误。模型对标签的过分相信会导致过拟合。
+标签平滑可以有效解决该问题，它的具体思想是降低我们对于标签的信任，例如我们可以将损失的目标值从1稍微降到0.9，或者将从0稍微升到0.1。总的来说，标签平滑是一种通过在标签y中加入噪声，实现对模型约束，降低模型过拟合程度的一种正则化方法。
+[论文地址](https://arxiv.org/abs/1512.00567)  [飞桨2.0API地址](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/nn/functional/common/label_smooth_cn.html#label-smooth)
+
+<center><p>
+
+
+  $\tilde{y_k} = (1 - \epsilon) * y_k + \epsilon * \mu_k$
+
+
+  </p></center>
+  
+  
+其中 1−ϵ 和 ϵ 分别是权重，$\tilde{y_k}$是平滑后的标签，通常 μ 使用均匀分布。
+
+独热编码
+
+One-Hot编码是分类变量作为二进制向量的表示。这首先要求将分类值映射到整数值。然后，每个整数值被表示为二进制向量，除了整数的索引之外，它都是零值，它被标记为1。
+
+离散特征的编码分为两种情况：
+
+1. 离散特征的取值之间没有大小的意义，比如color：[red,blue],那么就使用one-hot编码
+1. 离散特征的取值有大小的意义，比如size:[X,XL,XXL],那么就使用数值的映射{X:1,XL:2,XXL:3}，标签编码
+
+* 优化算法选择
+
+Adam, init_lr=3e-4，3e-4号称是Adam最好的初始学习率
+
+学习率调整策略：
+
+&emsp;&emsp;当我们使用梯度下降算法来优化目标函数的时候，当越来越接近Loss值的全局最小值时，学习率应该变得更小来使得模型尽可能接近这一点。
+
+
+![](https://ai-studio-static-online.cdn.bcebos.com/15d80a33d34c4eafa5824032ecf3cd3bc4a5111b41e94703982b81b4f46bdf3b)
+
+
+可以由上图看出，固定学习率时，当到达收敛状态时，会在最优值附近一个较大的区域内摆动；而当随着迭代轮次的增加而减小学习率，会使得在收敛时，在最优值附近一个更小的区域内摆动。（之所以曲线震荡朝向最优值收敛，是因为在每一个mini-batch中都存在噪音）。因此，选择一个合适的学习率，对于模型的训练将至关重要。下面来了解一些学习率调整的方法。
+
+针对学习率的优化有很多种方法，而linearwarmup是其中重要的一种。
+
+[飞桨2.0学习率调整相关API](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/optimizer/Overview_cn.html#about-lr)
+
+当我们使用梯度下降算法来优化目标函数的时候，当越来越接近Loss值的全局最小值时，学习率应该变得更小来使得模型尽可能接近这一点，而余弦退火（Cosine annealing）可以通过余弦函数来降低学习率。余弦函数中随着x的增加余弦值首先缓慢下降，然后加速下降，再次缓慢下降。这种下降模式能和学习率配合，以一种十分有效的计算方式来产生很好的效果。
+```python
+
+```
+
+
+```python
+
+```
+
+
+```python
+
+```
+
+
+```python
 
 ```
 
@@ -455,7 +654,26 @@ label shuffling
 
 ```
 
-v
+```python
+
+```
+
+```python
+
+```
+
+```python
+
+```
+
+```python
+
+```
+
+```python
+
+```
+
 ```python
 
 ```
