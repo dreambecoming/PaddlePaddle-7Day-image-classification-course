@@ -631,33 +631,321 @@ Adam, init_lr=3e-4，3e-4号称是Adam最好的初始学习率
 [飞桨2.0学习率调整相关API](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/optimizer/Overview_cn.html#about-lr)
 
 当我们使用梯度下降算法来优化目标函数的时候，当越来越接近Loss值的全局最小值时，学习率应该变得更小来使得模型尽可能接近这一点，而余弦退火（Cosine annealing）可以通过余弦函数来降低学习率。余弦函数中随着x的增加余弦值首先缓慢下降，然后加速下降，再次缓慢下降。这种下降模式能和学习率配合，以一种十分有效的计算方式来产生很好的效果。
+
+* 技巧应用
+
+此部分通过MobileNetV2训练模型，并在模型中应用上述提到的技巧。
+```python
+from work.mobilenet import MobileNetV2
+
+# 模型封装
+model_res = MobileNetV2(class_dim=4)
+model = paddle.Model(model_res)
+
+# 定义优化器
+
+scheduler = paddle.optimizer.lr.CosineAnnealingDecay(learning_rate=0.5, T_max=10, verbose=True)
+sgd = paddle.optimizer.SGD(learning_rate=scheduler, parameters=linear.parameters())
+# optim = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+```
+
+软标签&硬标签：
+
+![](https://ai-studio-static-online.cdn.bcebos.com/ffcc361281034384af67d67e41df743bd03ff53aba6d403697a960571aea143f)
+
+```python
+# 配置模型
+model.prepare(
+    optim,
+    paddle.nn.CrossEntropyLoss(soft_label=True),
+    Accuracy()
+    )
+
+```
+```python
+# 模型训练与评估
+model.fit(train_loader,
+        val_loader,
+        log_freq=1,
+        epochs=5,
+        # callbacks=Callbk(write=write, iters=iters),
+        verbose=1,
+        )
+```
+完整代码：
+
+```python
+# 数据读取部分
+# 导入所需要的库
+from sklearn.utils import shuffle
+import os
+import pandas as pd
+import numpy as np
+from PIL import Image
+
+import paddle
+import paddle.nn as nn
+from paddle.io import Dataset
+import paddle.vision.transforms as T
+import paddle.nn.functional as F
+from paddle.metric import Accuracy
+
+import warnings
+warnings.filterwarnings("ignore")
+
+# 读取数据
+train_images = pd.read_csv('data/data71799/lemon_lesson/train_images.csv', usecols=['id','class_num'])
+
+# labelshuffling
+
+def labelShuffling(dataFrame, groupByName = 'class_num'):
+
+    groupDataFrame = dataFrame.groupby(by=[groupByName])
+    labels = groupDataFrame.size()
+    print("length of label is ", len(labels))
+    maxNum = max(labels)
+    lst = pd.DataFrame()
+    for i in range(len(labels)):
+        print("Processing label  :", i)
+        tmpGroupBy = groupDataFrame.get_group(i)
+        createdShuffleLabels = np.random.permutation(np.array(range(maxNum))) % labels[i]
+        print("Num of the label is : ", labels[i])
+        lst=lst.append(tmpGroupBy.iloc[createdShuffleLabels], ignore_index=True)
+        print("Done")
+    # lst.to_csv('test1.csv', index=False)
+    return lst
+
+# 划分训练集和校验集
+all_size = len(train_images)
+# print(all_size)
+train_size = int(all_size * 0.8)
+train_image_list = train_images[:train_size]
+val_image_list = train_images[train_size:]
+
+df = labelShuffling(train_image_list)
+df = shuffle(df)
+
+train_image_path_list = df['id'].values
+label_list = df['class_num'].values
+label_list = paddle.to_tensor(label_list, dtype='int64')
+train_label_list = paddle.nn.functional.one_hot(label_list, num_classes=4)
+
+val_image_path_list = val_image_list['id'].values
+val_label_list = val_image_list['class_num'].values
+val_label_list = paddle.to_tensor(val_label_list, dtype='int64')
+val_label_list = paddle.nn.functional.one_hot(val_label_list, num_classes=4)
+
+# 定义数据预处理
+data_transforms = T.Compose([
+    T.Resize(size=(224, 224)),
+    T.RandomHorizontalFlip(224),
+    T.RandomVerticalFlip(224),
+    T.Transpose(),    # HWC -> CHW
+    T.Normalize(
+        mean=[0, 0, 0],        # 归一化
+        std=[255, 255, 255],
+        to_rgb=True)    
+])
+```
+
+```python
+# 构建Dataset
+class MyDataset(paddle.io.Dataset):
+    """
+    步骤一：继承paddle.io.Dataset类
+    """
+    def __init__(self, train_img_list, val_img_list,train_label_list,val_label_list, mode='train'):
+        """
+        步骤二：实现构造函数，定义数据读取方式，划分训练和测试数据集
+        """
+        super(MyDataset, self).__init__()
+        self.img = []
+        self.label = []
+        # 借助pandas读csv的库
+        self.train_images = train_img_list
+        self.test_images = val_img_list
+        self.train_label = train_label_list
+        self.test_label = val_label_list
+        if mode == 'train':
+            # 读train_images的数据
+            for img,la in zip(self.train_images, self.train_label):
+                self.img.append('data/data71799/lemon_lesson/train_images/'+img)
+                self.label.append(la)
+        else:
+            # 读test_images的数据
+            for img,la in zip(self.train_images, self.train_label):
+                self.img.append('data/data71799/lemon_lesson/train_images/'+img)
+                self.label.append(la)
+
+    def load_img(self, image_path):
+        # 实际使用时使用Pillow相关库进行图片读取即可，这里我们对数据先做个模拟
+        image = Image.open(image_path).convert('RGB')
+        return image
+
+    def __getitem__(self, index):
+        """
+        步骤三：实现__getitem__方法，定义指定index时如何获取数据，并返回单条数据（训练数据，对应的标签）
+        """
+        image = self.load_img(self.img[index])
+        label = self.label[index]
+        # label = paddle.to_tensor(label)
+        
+        return data_transforms(image), paddle.nn.functional.label_smooth(label)
+
+    def __len__(self):
+        """
+        步骤四：实现__len__方法，返回数据集总数目
+        """
+        return len(self.img)
+```
+```python
+#train_loader
+train_dataset = MyDataset(train_img_list=train_image_path_list, val_img_list=val_image_path_list, train_label_list=train_label_list, val_label_list=val_label_list, mode='train')
+train_loader = paddle.io.DataLoader(train_dataset, places=paddle.CPUPlace(), batch_size=32, shuffle=True, num_workers=0)
+
+#val_loader
+
+val_dataset = MyDataset(train_img_list=train_image_path_list, val_img_list=val_image_path_list, train_label_list=train_label_list, val_label_list=val_label_list, mode='test')
+val_loader = paddle.io.DataLoader(train_dataset, places=paddle.CPUPlace(), batch_size=32, shuffle=True, num_workers=0)
+```
+```python
+# 模型训练部分
+from work.mobilenet import MobileNetV2
+
+# 模型封装
+model_res = MobileNetV2(class_dim=4)
+model = paddle.Model(model_res)
+
+# 定义优化器
+
+scheduler = paddle.optimizer.lr.LinearWarmup(
+        learning_rate=0.5, warmup_steps=20, start_lr=0, end_lr=0.5, verbose=True)
+optim = paddle.optimizer.SGD(learning_rate=scheduler, parameters=model.parameters())
+# optim = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+
+# 配置模型
+model.prepare(
+    optim,
+    paddle.nn.CrossEntropyLoss(soft_label=True),
+    Accuracy()
+    )
+
+# 模型训练与评估
+model.fit(train_loader,
+        val_loader,
+        log_freq=1,
+        epochs=10,
+        # callbacks=Callbk(write=write, iters=iters),
+        verbose=1,
+        )
+```
+```python
+# 保存模型参数
+# model.save('Hapi_MyCNN')  # save for training
+model.save('Hapi_MyCNN2', False)  # save for inference
+```
+```python
+# 模型预测
+import os, time
+import matplotlib.pyplot as plt
+import paddle
+from PIL import Image
+import numpy as np
+
+def load_image(img_path):
+    '''
+    预测图片预处理
+    '''
+    img = Image.open(img_path).convert('RGB')
+    # plt.imshow(img)          #根据数组绘制图像
+    # plt.show()               #显示图像
+    
+    #resize
+    img = img.resize((32, 32), Image.BILINEAR) #Image.BILINEAR双线性插值
+    img = np.array(img).astype('float32')
+
+    # HWC to CHW 
+    img = img.transpose((2, 0, 1))
+    
+    #Normalize
+    img = img / 255         #像素值归一化
+    # print(img)
+    # mean = [0.31169346, 0.25506335, 0.12432463]   
+    # std = [0.34042713, 0.29819837, 0.1375536]
+    # img[0] = (img[0] - mean[0]) / std[0]
+    # img[1] = (img[1] - mean[1]) / std[1]
+    # img[2] = (img[2] - mean[2]) / std[2]
+    
+    return img
+
+def infer_img(path, model_file_path, use_gpu):
+    '''
+    模型预测
+    '''
+    paddle.set_device('gpu:0') if use_gpu else paddle.set_device('cpu')
+    model = paddle.jit.load(model_file_path)
+    model.eval() #训练模式
+
+    #对预测图片进行预处理
+    infer_imgs = []
+    infer_imgs.append(load_image(path))
+    infer_imgs = np.array(infer_imgs)
+    label_list = ['0:優良', '1:良', '2:加工品', '3:規格外']
+    label_pre = []
+    for i in range(len(infer_imgs)):
+        data = infer_imgs[i]
+        dy_x_data = np.array(data).astype('float32')
+        dy_x_data = dy_x_data[np.newaxis,:, : ,:]
+        img = paddle.to_tensor(dy_x_data)
+        out = model(img)
+
+        # print(out[0])
+        # print(paddle.nn.functional.softmax(out)[0]) # 若模型中已经包含softmax则不用此行代码。
+
+        lab = np.argmax(out.numpy())  #argmax():返回最大数的索引
+        label_pre.append(lab)
+        # print(lab)
+        # print("样本: {},被预测为:{}".format(path, label_list[lab]))
+    return label_pre
+    # print("*********************************************")
+```
+```python
+img_list = os.listdir('data/data71799/lemon_lesson/test_images/')
+img_list.sort()
+img_list
+```
+```python
+image_path = []
+submit = []
+for root, dirs, files in os.walk('data/data71799/lemon_lesson/test_images/'):
+    # 文件夹内图片
+    for f in files:
+        image_path.append(os.path.join(root, f))
+        submit.append(f)
+image_path.sort()       
+submit.sort()
+
+key_list = []
+for i in range(len(image_path)):
+    key_list.append(infer_img(path=image_path[i], use_gpu=True, model_file_path="Hapi_MyCNN1")[0])
+    # time.sleep(0.5) #防止输出错乱
+```
+```python
+import pandas as pd
+
+img = pd.DataFrame(submit)
+img = img.rename(columns = {0:"id"})
+img['class_num'] = key_list
+
+
+img.to_csv('submit123.csv', index=False)
+```
 ```python
 
 ```
-
-
 ```python
 
 ```
-
-
-```python
-
-```
-
-
-```python
-
-```
-
-```python
-
-```
-
-```python
-
-```
-
 ```python
 
 ```
