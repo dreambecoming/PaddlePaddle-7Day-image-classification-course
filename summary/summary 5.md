@@ -74,6 +74,7 @@ data_transforms = T.Compose([
   ![](https://ai-studio-static-online.cdn.bcebos.com/b6133a31796a4ccc964e62b4acb1b5b907d9c5d86e244acd9495126b4849ced1)
   
   </p></center>
+  
 ```python
 import numpy as np
 from PIL import Image
@@ -414,7 +415,17 @@ def infer_img(path, model_file_path, use_gpu):
 ```
 
 ```python
+image_path = []
 
+for root, dirs, files in os.walk('work/'):
+    # 遍历work/文件夹内图片
+    for f in files:
+        image_path.append(os.path.join(root, f))
+
+for i in range(len(image_path)):
+    infer_img(path=image_path[i], use_gpu=True, model_file_path="Hapi_MyCNN")
+    # time.sleep(0.5) #防止输出错乱
+    break
 ```
 
 ```python
