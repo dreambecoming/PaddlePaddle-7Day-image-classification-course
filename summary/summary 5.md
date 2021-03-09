@@ -9,7 +9,7 @@
 ## 目录
 * [竞赛全流程](#竞赛全流程)
 * [调参](#调参)
-* [建模实战](#建模实战)
+* [PaddleClas](#PaddleClas)
 * [作业](#作业)
 ## 参考资料
 * [关于LeNet的前世今生](https://www.jiqizhixin.com/graph/technologies/6c9baf12-1a32-4c53-8217-8c9f69bd011b)
@@ -940,12 +940,305 @@ img['class_num'] = key_list
 
 img.to_csv('submit123.csv', index=False)
 ```
-```python
+## PaddleClas
+&emsp;&emsp;PaddleClas是飞桨为工业界和学术界所准备的一个图像分类任务的工具集，助力使用者训练出更好的视觉模型和应用落地。PaddleClas提供了基于图像分类的模型训练、评估、预测、部署全流程的服务，方便大家更加高效地学习图像分类。
+
+下面将从PaddleClas模型库概览、特色应用、快速上手、实践应用几个方面介绍PaddleClas实践方法：
+1. PaddleClas模型库概览：概要介绍PaddleClas有哪些分类网络结构和预训练模型。
+1. PaddleClas柠檬竞赛实战：重点介绍数据增广方法。
+
+* PaddleClas模型库概览
+
+&emsp;&emsp;图像分类模型有大有小，其应用场景各不相同，在云端或者服务器端应用时，一般情况下算力是足够的，更倾向于应用高精度的模型；在手机、嵌入式等端侧设备中应用时，受限于设备的算力和内存，则对模型的速度和大小有较高的要求。PaddleClas同时提供了服务器端模型与端侧轻量化模型来支撑不同的应用场景。
+
+<center><img src="https://ai-studio-static-online.cdn.bcebos.com/5fe0a0a051374ab984b2c029ced6ff154af201c25f7441a3bbbd1b30af83bd7c" width="600" ></center>
+
+    
+&emsp;&emsp;这里我们使用MobileNetV2模型，因为它在预测速度和性能上都具有很大的优势，而且符合我们此次竞赛实战的要求，用户可以根据预测耗时的要求选择不同的网络。此外，PaddleClas也开源了预训练模型，我们可以基于此在自己的数据集上进行微调，提升效果。
+
+更多模型详细介绍和模型训练技巧，可查看[PaddleClas模型库文档](https://paddleclas.readthedocs.io/zh_CN/latest/models/index.html)。
+
+###  一、前置条件
+
+1. 安装[Python3.5或更高版本](https://www.python.org/downloads/)版本。   
+2. 安装PaddlePaddle 1.7或更高版本，具体安装方法请参见[快速安装](https://www.paddlepaddle.org.cn/install/quick)。由于图像分类模型计算开销大，推荐在GPU版本的PaddlePaddle下使用PaddleClas。
+3. 下载PaddleClas的代码库。
+```
+cd path_to_clone_PaddleClas
+
+以下二者任选其一
+git clone https://github.com/PaddlePaddle/PaddleClas.git
+git clone https://gitee.com/paddlepaddle/PaddleClas.git
 
 ```
-```python
+4. 安装Python依赖库。Python依赖库在requirements.txt中给出。（本地）
 
 ```
+pip install --upgrade -r requirements.txt
+```
+
+5. 设置PYTHONPATH环境变量（本地）
+```
+export PYTHONPATH=path_to_PaddleClas:$PYTHONPATH
+```
+```python
+!git clone https://gitee.com/paddlepaddle/PaddleClas.git
+```
+```python
+!pip install -r PaddleClas/requirements.txt
+```
+###  二、准备数据集
+
+[PaddleClas数据准备文档](https://paddleclas.readthedocs.io/zh_CN/latest/tutorials/data.html)提供了ImageNet1k数据集以及flowers102数据集的准备过程。当然，如果大家希望使用自己的数据集，则需要至少准备以下两份文件。
+
+* 训练集图像，以图像文件形式保存。
+* 训练集标签文件，以文本形式保存，每一行的文件都包含文件名以及图像标签，以空格隔开。下面给出一个示例。
+```
+ILSVRC2012_val_00000001.JPEG 65
+...
+```
+
+如果需要在训练的时候进行验证，则也同时需要提供验证集图像以及验证集标签文件。
+
+以训练集配置为例，配置文件中对应如下
+```
+TRAIN: # 训练配置
+    batch_size: 32 # 训练的batch size
+    num_workers: 4 # 每个trainer(1块GPU上可以视为1个trainer)的进程数量
+    file_list: "./dataset/flowers102/train_list.txt" # 训练集标签文件，每一行由"image_name label"组成
+    data_dir: "./dataset/flowers102/" # 训练集的图像数据路径
+    shuffle_seed: 0 # 数据打散的种子
+    transforms: # 训练图像的数据预处理
+        - DecodeImage: # 解码
+            to_rgb: True
+            to_np: False
+            channel_first: False
+        - RandCropImage: # 随机裁剪
+            size: 224
+        - RandFlipImage: # 随机水平翻转
+            flip_code: 1
+        - NormalizeImage: # 归一化
+            scale: 1./255.
+            mean: [0.485, 0.456, 0.406]
+            std: [0.229, 0.224, 0.225]
+            order: ''
+        - ToCHWImage: # 通道转换
+```
+
+其中`file_list`即训练数据集的标签文件，`data_dir`是图像所在的文件夹。
+```python
+# 解压数据集
+!unzip data/data71799/lemon_lesson.zip
+
+!unzip lemon_lesson/train_images.zip -d lemon_lesson/
+
+!unzip lemon_lesson/test_images.zip -d lemon_lesson/
+```
+```python
+# 自己切分数据集
+import pandas as pd
+import codecs
+import os
+from PIL import Image
+
+df = pd.read_csv('lemon_lesson/train_images.csv')
+
+all_file_dir = 'lemon_lesson'
+
+train_file = codecs.open(os.path.join(all_file_dir, "train_list.txt"), 'w')
+eval_file = codecs.open(os.path.join(all_file_dir, "eval_list.txt"), 'w')
+
+image_path_list = df['id'].values
+label_list = df['class_num'].values
+
+# 划分训练集和校验集
+all_size = len(image_path_list)
+train_size = int(all_size * 0.8)
+train_image_path_list = image_path_list[:train_size]
+train_label_list = label_list[:train_size]
+val_image_path_list = image_path_list[train_size:]
+val_label_list = label_list[train_size:]
+
+image_path_pre = 'lemon_lesson/train_images'
+
+for file,label_id in zip(train_image_path_list, train_label_list):
+    # print(file)
+    # print(label_id)
+    try:
+        img = Image.open(os.path.join(image_path_pre, file))
+        
+        # train_file.write("{0}\0{1}\n".format(os.path.join(image_path_pre, file), label_id))
+        train_file.write("{0}{1}{2}\n".format(os.path.join(image_path_pre, file),' ', label_id))
+        # eval_file.write("{0}\t{1}\n".format(os.path.join(image_path_pre, file), label_id))
+    except Exception as e:
+        pass
+        # 存在一些文件打不开，此处需要稍作清洗
+        # print('error!')
+
+for file,label_id in zip(val_image_path_list, val_label_list):
+    # print(file)
+    # print(label_id)
+    try:
+        img = Image.open(os.path.join(image_path_pre, file))
+        # train_file.write("{0}\t{1}\n".format(os.path.join(image_path_pre, file), label_id))
+        eval_file.write("{0}{1}{2}\n".format(os.path.join(image_path_pre, file),' ', label_id))
+    except Exception as e:
+        # pass
+        # 存在一些文件打不开，此处需要稍作清洗
+        print('error!')
+
+train_file.close()
+eval_file.close()
+```
+#### 用PaddleX API一键切分数据集
+[数据标注、转换、划分 » 图像分类](https://paddlex.readthedocs.io/zh_CN/develop/data/annotation/index.html)
+- 先把每个分类的数据集都拎出来，归属到各自目录下
+- 再用PaddleX自带的API，一键切分数据集
+```python
+!cp -r lemon_lesson  MyDataset
+```
+```python
+!pip install paddlex 
+```
+```python
+import pandas as pd
+import codecs
+import os
+from PIL import Image
+
+df = pd.read_csv('MyDataset/train_images.csv')
+image_path_list = df['id'].values
+label_list = df['class_num'].values
+```
+```python
+df.class_num.value_counts()
+```
+```python
+!mkdir MyDataset/0
+!mkdir MyDataset/1
+!mkdir MyDataset/2
+!mkdir MyDataset/3
+
+# class_0
+class_0 = df[df.class_num==0]
+class_0_list = class_0['id'].values
+
+import shutil
+for i in class_0_list:
+    try:
+        shutil.copy(os.path.join('MyDataset/train_images', i), os.path.join('MyDataset/0', i))
+    except Exception as e:
+        pass
+
+# class_1
+class_1 = df[df.class_num==1]
+class_1_list = class_1['id'].values
+
+import shutil
+for i in class_1_list:
+    try:
+        shutil.copy(os.path.join('MyDataset/train_images', i), os.path.join('MyDataset/1', i))
+    except Exception as e:
+        pass
+
+# class_2
+class_2 = df[df.class_num==2]
+class_2_list = class_2['id'].values
+import shutil
+for i in class_2_list:
+    try:
+        shutil.copy(os.path.join('MyDataset/train_images', i), os.path.join('MyDataset/2', i))
+    except Exception as e:
+        pass
+# class_3
+class_3 = df[df.class_num==3]
+class_3_list = class_3['id'].values
+import shutil
+for i in class_3_list:
+    try:
+        shutil.copy(os.path.join('MyDataset/train_images', i), os.path.join('MyDataset/3', i))
+    except Exception as e:
+        pass
+```
+
+```python
+!ls MyDataset/0 -l |grep "^-"|wc -l
+!ls MyDataset/1 -l |grep "^-"|wc -l
+!ls MyDataset/2 -l |grep "^-"|wc -l
+!ls MyDataset/3 -l |grep "^-"|wc -l
+```
+***
+查看某文件夹下文件的个数：ls -l |grep "^-"|wc -l 或 find ./company -type f | wc -l
+
+ls -l
+
+长列表输出该目录下文件信息(注意这里的文件，不同于一般的文件，可能是目录、链接、设备文件等)
+
+grep "^-"
+
+这里将长列表输出信息过滤一部分，只保留一般文件，如果只保留目录就是 ^d
+
+wc -l
+
+统计输出信息的行数，因为已经过滤得只剩一般文件了，所以统计结果就是一般文件信息的行数，又由于
+
+一行信息对应一个文件，所以也就是文件的个数。
+
+***
+```python
+# 使用PaddleX数据切分API要删除多余目录和list文件，否则会出现异常
+!rm -r MyDataset/train_images
+!rm -r MyDataset/test_images
+!rm MyDataset/*.txt
+```
+
+```python
+!paddlex --split_dataset --format ImageNet --dataset_dir MyDataset --val_value 0.2 --test_value 0.1
+```
+迁移学习(Transfer learning) 顾名思义就是就是把已学训练好的模型参数迁移到新的模型来帮助新模型训练。考虑到大部分数据或任务是存在相关性的，所以通过迁移学习我们可以将已经学到的模型参数（也可理解为模型学到的知识）通过某种方式来分享给新模型从而加快并优化模型的学习效率不用像大多数网络那样从零学习（starting from scratch，tabula rasa）。
+
+### 三、模型训练与评估
+
+在自己的数据集上训练分类模型时，更推荐加载预训练进行微调。
+
+预训练模型使用以下方式进行下载。
+
+```
+python tools/download.py -a MobileNetV3_small_x1_0 -p ./pretrained -d True
+```
+
+更多的预训练模型可以参考这里：[https://paddleclas.readthedocs.io/zh_CN/latest/models/models_intro.html](https://paddleclas.readthedocs.io/zh_CN/latest/models/models_intro.html)
+
+PaddleClas 提供模型训练与评估脚本：`tools/train.py`和`tools/eval.py`
+#### 3.1 模型训练
+准备好配置文件之后，可以使用下面的方式启动训练。
+
+
+```
+python tools/train.py \
+    -c configs/quick_start/MobileNetV3_large_x1_0_finetune.yaml \
+    -o pretrained_model="" \
+    -o use_gpu=True
+```
+
+
+其中，`-c`用于指定配置文件的路径，`-o`用于指定需要修改或者添加的参数，其中`-o pretrained_model=""`表示不使用预训练模型，`-o use_gpu=True`表示使用GPU进行训练。如果希望使用CPU进行训练，则需要将`use_gpu`设置为`False`。
+
+更详细的训练配置，也可以直接修改模型对应的配置文件。
+
+运行上述命令，可以看到输出日志，示例如下：
+
+- 如果在训练中使用了mixup或者cutmix的数据增广方式，那么日志中只会打印出loss(损失)、lr(学习率)以及该minibatch的训练时间。
+    
+`train step:890  loss:  6.8473 lr: 0.100000 elapse: 0.157s`
+    
+- 如果训练过程中没有使用mixup或者cutmix的数据增广，那么除了loss(损失)、lr(学习率)以及该minibatch的训练时间之外，日志中也会打印出top-1与top-k(默认为5)的信息。
+    
+`epoch:0    train    step:13    loss:7.9561    top1:0.0156    top5:0.1094    lr:0.100000    elapse:0.193s`
+    
+
+训练期间也可以通过VisualDL实时观察loss变化。
+
 ```python
 
 ```
