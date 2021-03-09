@@ -981,6 +981,7 @@ pip install --upgrade -r requirements.txt
 ```
 export PYTHONPATH=path_to_PaddleClas:$PYTHONPATH
 ```
+开始：
 ```python
 !git clone https://gitee.com/paddlepaddle/PaddleClas.git
 ```
@@ -1238,6 +1239,177 @@ python tools/train.py \
     
 
 训练期间也可以通过VisualDL实时观察loss变化。
+
+```python
+%cd PaddleClas/
+
+!python tools/download.py -a MobileNetV3_large_x1_0 -p ./pretrained -d True
+
+!cp ../MobileNetV3_large_x1_0_finetune.yaml configs/quick_start/MobileNetV3_large_x1_0_finetune.yaml
+```
+在AI Studio上查看可视化效果：参考[VisualDL文档](https://github.com/PaddlePaddle/VisualDL)
+> 设置日志文件并记录标量数据：
+> ```python
+> from visualdl import LogWriter
+> # 在`./log/scalar_test/train`路径下建立日志文件
+> with LogWriter(logdir="./log/scalar_test/train") as writer:
+>  # 使用scalar组件记录一个标量数据
+>  writer.add_scalar(tag="acc", step=1, value=0.5678)
+>  writer.add_scalar(tag="acc", step=2, value=0.6878)
+>  writer.add_scalar(tag="acc", step=3, value=0.9878)
+> ```
+
+因此，训练前可以改造一下`tools/train.py`的代码，加入VisualDL可视化，比如这里，把每轮验证集上的准确率结果记录下来：
+```python
+    # 在`./logdir`路径下建立日志文件
+    with LogWriter(logdir="./logdir") as writer:
+        for epoch_id in range(last_epoch_id + 1, config.epochs):
+            net.train()
+            # 1. train with train dataset
+            program.run(train_dataloader, config, net, optimizer, lr_scheduler,
+                        epoch_id, 'train')
+
+            # 2. validate with validate dataset
+            if config.validate and epoch_id % config.valid_interval == 0:
+                net.eval()
+                with paddle.no_grad():
+                    top1_acc = program.run(valid_dataloader, config, net, None,
+                                        None, epoch_id, 'valid')
+                if top1_acc > best_top1_acc:
+                    best_top1_acc = top1_acc
+                    best_top1_epoch = epoch_id
+                    if epoch_id % config.save_interval == 0:
+                        model_path = os.path.join(config.model_save_dir,
+                                                config.ARCHITECTURE["name"])
+                        save_model(net, optimizer, model_path, "best_model")
+                message = "The best top1 acc {:.5f}, in epoch: {:d}".format(
+                    best_top1_acc, best_top1_epoch)
+                logger.info("{:s}".format(logger.coloring(message, "RED")))
+                # 使用scalar组件记录一个标量数据
+                writer.add_scalar(tag="val_acc", step=epoch_id, value=top1_acc)
+```
+```python
+!cp ../train.py tools/train.py
+
+# 开始训练
+!python tools/train.py -c ../MobileNetV3_large_x1_0_finetune.yaml
+```
+#### 3.2 模型微调
+[30分钟玩转PaddleClas](https://paddleclas.readthedocs.io/zh_CN/latest/tutorials/quick_start.html)中包含大量模型微调的示例，可以参考该章节进行模型微调。
+#### 3.3 模型评估
+可以更改configs/eval.yaml中的ARCHITECTURE.name字段和pretrained_model字段来配置评估模型，也可以通过-o参数更新配置。
+>注意： 加载预训练模型时，需要指定预训练模型的前缀，例如预训练模型参数所在的文件夹为output/ResNet50_vd/19，预训练模型参数的名称为output/ResNet50_vd/19/ppcls.pdparams，则pretrained_model参数需要指定为output/ResNet50_vd/19/ppcls，PaddleClas会自动补齐.pdparams的后缀。
+```python
+!python tools/eval.py \
+    -c ../MobileNetV3_large_x1_0_finetune.yaml \
+    -o pretrained_model="./output/MobileNetV3_large_x1_0/best_model/ppcls"\
+    -o load_static_weights=False
+```
+### 四、图像增广
+
+下面这个流程图是图片预处理并被送进网络训练的一个过程，需要经过解码、随机裁剪、水平翻转、归一化、通道转换以及组batch，最终训练的过程。
+<center><img src="https://ai-studio-static-online.cdn.bcebos.com/07cac4aa7feb4e9f8f595dce4ad1abd61d63d0f953e440b5bf28e588f85c58c7" width="600" ></center>
+<br>
+
+1. 图像变换类：图像变换类是在随机裁剪与翻转之间进行的操作，也可以认为是在原图上做的操作。主要方式包括**AutoAugment**和**RandAugment**，基于一定的策略，包括锐化、亮度变化、直方图均衡化等，对图像进行处理。这样网络在训练时就已经见过这些情况了，之后在实际预测时，即使遇到了光照变换、旋转这些很棘手的情况，网络也可以从容应对了。
+
+2. 图像裁剪类：图像裁剪类主要是在生成的在通道转换之后，在图像上设置掩码，随机遮挡，从而使得网络去学习一些非显著性的特征。否则网络一直学习很重要的显著性区域，之后在预测有遮挡的图片时，泛化能力会很差。主要方式包括：**CutOut**、**RandErasing**、**HideAndSeek**、**GridMask**。这里需要注意的是，在通道转换前后去做图像裁剪，其实是没有区别的。因为通道转换这个操作不会修改图像的像素值。
+
+3. 图像混叠类：组完batch之后，图像与图像、标签与标签之间进行混合，形成新的batch数据，然后送进网络进行训练。这也就是图像混叠类数据增广方式，主要的有**Mixup**与**Cutmix**两种方式。
+
+> 参考资料：
+> - [深度学习中几种常用增强数据的库](https://blog.csdn.net/weixin_44111292/article/details/108930130)
+> - [imgaug](https://github.com/aleju/imgaug)
+> - [Albumentations](https://github.com/albumentations-team/albumentations)
+```python
+# 原项目random_erasing.py有错误，相当于运行时候没进行擦除处理，这里进行了替换，然后运行train.py，就会进行擦除了
+!cp ../random_erasing.py ppcls/data/imaug/random_erasing.py
+
+!python tools/train.py -c ../MobileNetV3_large_x1_0_finetune.yaml
+```
+#### 4.2 离线数据增广
+这是一个离线数据增广的脚本，可以帮助我们利用PaddleClas的自动数据增强功能，快速进行离线数据扩充
+```python
+!cp ../img_aug.py ./
+
+!mkdir ../img_aug
+
+!python img_aug.py
+```
+### 五、模型推理
+首先，对训练好的模型进行转换：
+```
+python tools/export_model.py \
+    --model=模型名字 \
+    --pretrained_model=预训练模型路径 \
+    --output_path=预测模型保存路径
+```
+之后，通过推理引擎进行推理：
+```
+python tools/infer/predict.py \
+    -m model文件路径 \
+    -p params文件路径 \
+    -i 图片路径 \
+    --use_gpu=1 \
+    --use_tensorrt=True
+```
+
+更多的参数说明可以参考[https://github.com/PaddlePaddle/PaddleClas/blob/master/tools/infer/predict.py](https://github.com/PaddlePaddle/PaddleClas/blob/master/tools/infer/predict.py)中的`parse_args`函数。
+
+更多关于服务器端与端侧的预测部署方案请参考：[https://www.paddlepaddle.org.cn/documentation/docs/zh/advanced_guide/inference_deployment/index_cn.html](https://www.paddlepaddle.org.cn/documentation/docs/zh/advanced_guide/inference_deployment/index_cn.html)
+
+```python
+# 注意要写入类别数
+!python tools/export_model.py \
+    --model=MobileNetV3_large_x1_0 \
+    --pretrained_model=output/MobileNetV3_large_x1_0/best_model/ppcls \
+    --output_path=inference \
+    --class_dim 4 
+```
+```python
+# 可以预测整个目录
+!python tools/infer/predict.py \
+    --model_file inference/inference.pdmodel \
+    --params_file inference/inference.pdiparams \
+    --image_file ../lemon_lesson/test_images \
+    --use_gpu=True
+```
+### 六、输出预测结果
+做一些小幅改造，让预测结果以`sample_submit.csv`的格式保存，便于提交。
+```python
+!cp ../predict.py tools/infer/submit.py
+```
+```python
+# 可以预测整个目录
+!python tools/infer/submit.py \
+    --model_file inference/inference.pdmodel \
+    --params_file inference/inference.pdiparams \
+    --image_file ../lemon_lesson/test_images \
+    --use_gpu=True
+```
+PaddleClas github地址：[https://github.com/PaddlePaddle/PaddleClas/](https://github.com/PaddlePaddle/PaddleClas/)
+
+PaddleClas教程文档地址：[https://paddleclas.readthedocs.io/zh_CN/latest/index.html](https://paddleclas.readthedocs.io/zh_CN/latest/index.html)
+
+## 作业
+本实践旨在通过一个美食分类的案列，让大家理解和掌握如何使用飞桨2.0搭建一个卷积神经网络。
+
+特别提示：本实践所用数据集均来自互联网，请勿用于商务用途。
+
+解压文件，使用train.csv训练，测试使用val.csv。最后以在val上的准确率作为最终分数。
+
+
+```python
+
+```
+
+```python
+
+```
+
+```python
+
+```
 
 ```python
 
