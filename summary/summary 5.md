@@ -7,8 +7,8 @@
 
 ****
 ## 目录
-* [前置知识](#前置知识)
-* [基础理论](#基础理论)
+* [竞赛全流程](#竞赛全流程)
+* [调参](#调参)
 * [建模实战](#建模实战)
 * [作业](#作业)
 ## 参考资料
@@ -16,8 +16,8 @@
 
 
 
-# 课节4：卷积神经网络基础：蝴蝶图像识别分类
-## 前置知识
+# 课节5：图像分类竞赛全流程实战
+## 竞赛全流程
 
 图像分类比赛的一般解题流程：
   1. 数据EDA （Pandas、Matplotlib）
@@ -31,7 +31,7 @@
   2. One-Shot和Few-Shot分类
   3. 细粒度分类
 
-一、EDA（Exploratory Data Analysis）与数据预处理
+### 一、EDA（Exploratory Data Analysis）与数据预处理
 * EDA
 &emsp;&emsp;探索性数据分析（Exploratory Data Analysis，简称EDA），是指对已有的数据（原始数据）进行分析探索，通过作图、制表、方程拟合、计算特征量等手段探索数据的结构和规律的一种数据分析方法。一般来说，我们最初接触到数据的时候往往是毫无头绪的，不知道如何下手，这时候探索性数据分析就非常有效。
 
@@ -195,7 +195,7 @@ for batch_id, data in enumerate(train_loader()):
     break
 
 ```
-二、Baseline选择
+### 二、Baseline选择
 
 &emsp;&emsp;理想情况中，模型越大拟合能力越强，图像尺寸越大，保留的信息也越多。在实际情况中模型越复杂训练时间越长，图像输入尺寸越大训练时间也越长。
 比赛开始优先使用最简单的模型（如ResNet），快速跑完整个训练和预测流程；分类模型的选择需要根据任务复杂度来进行选择，并不是精度越高的模型越适合比赛。
@@ -351,7 +351,7 @@ model.fit(train_loader,
 # model.save('Hapi_MyCNN')  # save for training
 model.save('Hapi_MyCNN1', False)  # save for inference
 ```
-三、模型预测
+### 三、模型预测
 ```python
 import os, time
 import matplotlib.pyplot as plt
@@ -427,7 +427,26 @@ for i in range(len(image_path)):
     # time.sleep(0.5) #防止输出错乱
     break
 ```
+baseline选择技巧：
+* 模型：复杂度小的模型可以快速迭代。
+* optimizer：推荐Adam，或者SGD
+* Loss Function: 多分类Cross entropy;
+* metric：以比赛的评估指标为准。
+* 数据增强：数据增强其实可为空，或者只有一个HorizontalFlip即可。
+* 图像分辨率：初始最好就用小图，如224*224之类的。
 
+## 调参
+###  数据处理部分
+label shuffling
+
+&emsp;&emsp;首先对原始的图像列表，按照标签顺序进行排序；
+然后计算每个类别的样本数量，并得到样本最多的那个类别的样本数。
+根据这个最多的样本数，对每类都产生一个随机排列的列表；
+然后用每个类别的列表中的数对各自类别的样本数求余，得到一个索引值，从该类的图像中提取图像，生成该类的图像随机列表；
+然后把所有类别的随机列表连在一起，做个Random Shuffling，得到最后的图像列表，用这个列表进行训练。
+
+
+![](https://ai-studio-static-online.cdn.bcebos.com/36dc85bab2c84602a04dec6fe7db3914a96c66546a7b4bb68f61b8eb77387c35)
 ```python
 
 ```
