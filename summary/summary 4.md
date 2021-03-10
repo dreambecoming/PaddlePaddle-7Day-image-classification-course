@@ -166,51 +166,27 @@ ResNet模型引入残差模块，它能够有效地消除由于模型层数增�
 2. 通过修改模型、数据增强等方法，使得模型在测试数据集上的准确度达到85%及以上的，在底分上再得到加分30分；
 3. 通过修改模型、数据增强等方法，使得模型在测试数据集上的准确度达到90%及以上的，直接得到满分100分。
 
-项目：
-### 1. 蝴蝶识别分类任务概述
-
-人工智能技术的应用领域日趋广泛，新的智能应用层出不穷。本项目将利用人工智能技术来对蝴蝶图像进行分类，需要能对蝴蝶的类别、属性进行细粒度的识别分类。相关研究工作者能够根据采集到的蝴蝶图片，快速识别图中蝴蝶的种类。期望能够有助于提升蝴蝶识别工作的效率和精度。
-
-#### 2. 创建项目和挂载数据
-
-数据集都来源于网络公开数据（和鲸社区）。图片中所涉及的蝴蝶总共有9个属，20个物种，文件genus.txt中描述了9个属名，species.txt描述了20个物种名。
-
-在创建项目时，可以为该项目挂载Butterfly20蝴蝶数据集，即便项目重启，该挂载的数据集也不会被自动清除。具体方法如下：首先采用notebook方式构建项目，项目创建框中的最下方有个数据集选项，选择“+添加数据集”。然后，弹出搜索框，在关键词栏目输入“bufferfly20”，便能够查询到该数据集。最后，选中该数据集，可以自动在项目中挂载该数据集了。
-
-需要注意的是，每次重新打开该项目，data文件夹下除了挂载的数据集，其他文件都将被删除。
-
-被挂载的数据集会自动出现在data目录之下，通常是压缩包的形式。在data/data63004目录，其中有两个压缩文件，分别是Butterfly20.zip和Butterfly20_test.zip。也可以利用下载功能把数据集下载到本地进行训练。
-
-### 3. 初探蝴蝶数据集
-
-我们看看蝴蝶图像数据长什么样子？
-
-首先，解压缩数据。类以下几个步骤：
-
-第一步，把当前路径转换到data目录，可以使用命令!cd data。在AI studio nootbook中可以使用Linux命令，需要在命令的最前面加上英文的感叹号(!)。用&&可以连接两个命令。用\号可以换行写代码。需要注意的是，每次重新打开该项目，data文件夹下除了挂载的数据集，其他文件都会被清空。因此，如果把数据保存在data目录中，每次重新启动项目时，都需要解压缩一下。如果想省事持久化保存，可以把数据保存在work目录下。
-
-实际上，!加某命令的模式，等价于python中的get_ipython().system('某命令')模式。
-
-第二步，利用unzip命令，把压缩包解压到当前路径。unzip的-q参数代表执行时不显示任何信息。unzip的-o参数代表不必先询问用户，unzip执行后覆盖原有的文件。两个参数合起来，可以写为-qo。
-
-第三步，用rm命令可以把一些文件夹给删掉，比如，__MACOSX文件夹
+**{'loss': [0.14068076], 'acc': 0.9235924932975871}**
 ```python
 !cd data &&\
 unzip -qo data63004/Butterfly20_test.zip &&\
 unzip -qo data63004/Butterfly20.zip &&\
 rm -r __MACOSX
 ```
-### 4. 数据准备
 
-数据准备过程包括以下两个重点步骤：
 
-一是建立样本数据读取路径与样本标签之间的关系。
-
-二是构造读取器与数据预处理。可以写个自定义数据读取器，它继承于PaddlePaddle2.0的dataset类，在__getitem__方法中把自定义的预处理方法加载进去。
 ```python
-#以下代码用于建立样本数据读取路径与样本标签之间的关系
 import os
 import random
+
+import cv2
+import numpy as np
+from matplotlib import pyplot as plt
+```
+
+
+```python
+#以下代码用于建立样本数据读取路径与样本标签之间的关系
 
 data_list = [] #用个列表保存每个样本的读取路径、标签
 
@@ -219,34 +195,51 @@ label_list=[]
 with open("/home/aistudio/data/species.txt") as f:
     for line in f:
         a,b = line.strip("\n").split(" ")
-        label_list.append([b, int(a)-1]) # label_list=[蝴蝶类名，类编号]
+        label_list.append([b, int(a)-1])
 label_dic = dict(label_list)
+# print(label_dic)
 
 #获取Butterfly20目录下的所有子目录名称，保存进一个列表之中
-class_list = os.listdir("/home/aistudio/data/Butterfly20") # 返回文件夹包含子文件名的列表
+class_list = os.listdir("/home/aistudio/data/Butterfly20")
 class_list.remove('.DS_Store') #删掉列表中名为.DS_Store的元素，因为.DS_Store并没有样本。
+# print(class_list)
 
+for each in class_list:
+    #print(each)
+    for f in os.listdir("/home/aistudio/data/Butterfly20/"+each):
+        #print(f)
+        filename = "/home/aistudio/data/Butterfly20/"+each+'/'+f
+        img = cv2.imread(filename)
+        dst = cv2.flip(img,1)  #水平翻转图片
+        #plt.imshow(dst)
+        cv2.imwrite("/home/aistudio/data/Butterfly20/"+each+'/new_'+f, dst) #将翻转的图片加入数据集
+```
+
+
+```python
 for each in class_list:
     for f in os.listdir("/home/aistudio/data/Butterfly20/"+each):# each 是 子文件夹名，蝴蝶类
         data_list.append(["/home/aistudio/data/Butterfly20/"+each+'/'+f,label_dic[each]])# f 是 子文件夹里面每张图片名，具体蝴蝶图像名
 
-# data_list=[图片路径，类编号]
-# print(data_list)
-# 按文件顺序读取，可能造成很多属种图片存在序列相关，用random.shuffle方法把样本顺序彻底打乱。
+#按文件顺序读取，可能造成很多属种图片存在序列相关，用random.shuffle方法把样本顺序彻底打乱。
 random.shuffle(data_list)
 
 #打印前十个，可以看出data_list列表中的每个元素是[样本读取路径, 样本标签]。
-print(data_list[0:10])
+# print(data_list[0:10])
 
-#打印样本数量，一共有1866个样本。
+#打印样本数量
 print("样本数量是：{}".format(len(data_list)))
 ```
+
+    样本数量是：3732
+
+
 
 ```python
 #以下代码用于构造读取器与数据预处理
 #首先需要导入相关的模块
 import paddle
-from paddle.vision.transforms import Compose, ColorJitter, Resize,Transpose, Normalize
+from paddle.vision.transforms import Compose, ColorJitter, Resize,Transpose, Normalize,ColorJitter
 import cv2
 import numpy as np
 from PIL import Image
@@ -256,11 +249,13 @@ import paddle.vision.transforms as T
 def preprocess(img):
     transform = Compose([
         Resize(size=(224, 224)), #把数据长宽像素调成224*224
-        T.RandomHorizontalFlip(0.5),         #水平翻转
-        T.RandomRotation(15),                #随机反转角度范围
-        T.RandomVerticalFlip(0.15),          #垂直翻转
-        T.RandomRotation(15),                #按指定角度范围随机旋转图像
-        Normalize(mean=[127.5, 127.5, 127.5], std=[127.5, 127.5, 127.5], data_format='HWC'), #标准化
+        T.ColorJitter(0.125,0.4,0.4,0.08),                                                   # 保持亮度、对比度、饱和度、色调等在测试集上一致
+        # T.BrightnessTransform(0.4),                                                        # 只对亮度调整做调整
+        T.RandomHorizontalFlip(224),                                                         # 水平翻转
+        T.RandomRotation(90),                                                                # 随机反转角度范围
+        T.RandomVerticalFlip(224),                                                           # 垂直翻转
+        T.RandomRotation(90),        
+        Normalize(mean=[0,0,0], std=[255, 255, 255], data_format='HWC'), #标准化
         Transpose(), #原始数据形状维度是HWC格式，经过Transpose，转换为CHW格式
         ])
     img = transform(img).astype("float32")
@@ -300,14 +295,12 @@ eval_dataset = Reader(data_list, is_val=True)
 #print(train_dataset[1136][0])
 print(train_dataset[1136][0].shape)
 print(train_dataset[1136][1])
+
 ```
-### 5. 建立模型
 
-为了提升探索速度，建议首先选用比较成熟的基础模型，看看基础模型所能够达到的准确度。之后再试试模型融合，准确度是否有提升。最后可以试试自己独创模型。
+    (3, 224, 224)
+    [2]
 
-为简便，这里直接采用101层的残差网络ResNet，并且采用预训练模式。为什么要采用预训练模型呢？因为通常模型参数采用随机初始化，而预训练模型参数初始值是一个比较确定的值。这个参数初始值是经历了大量任务训练而得来的，比如用CIFAR图像识别任务来训练模型，得到的参数。虽然蝴蝶识别任务和CIFAR图像识别任务是不同的，但可能存在某些机器视觉上的共性。用预训练模型可能能够较快地得到比较好的准确度。
-
-在PaddlePaddle2.0中，使用预训练模型只需要设定模型参数pretained=True。值得注意的是，预训练模型得出的结果类别是1000维度，要用个线性变换，把类别转化为20维度。
 ```python
 #定义模型
 class MyNet(paddle.nn.Layer):
@@ -323,17 +316,6 @@ class MyNet(paddle.nn.Layer):
         x=self.fc(x)
         return x
 ```
-### 6. 应用高阶API训练模型
-
-一是定义输入数据形状大小和数据类型。
-
-二是实例化模型。如果要用高阶API，需要用Paddle.Model()对模型进行封装，如model = paddle.Model(model,inputs=input_define,labels=label_define)。
-
-三是定义优化器。这个使用Adam优化器，学习率设置为0.0001，优化器中的学习率(learning_rate)参数很重要。要是训练过程中得到的准确率呈震荡状态，忽大忽小，可以试试进一步把学习率调低。
-
-四是准备模型。这里用到高阶API，model.prepare()。
-
-五是训练模型。这里用到高阶API，model.fit()。参数意义详见下述代码注释。
 ```python
 #定义输入
 input_define = paddle.static.InputSpec(shape=[-1,3,224,224], dtype="float32", name="img")
@@ -342,44 +324,121 @@ label_define = paddle.static.InputSpec(shape=[-1,1], dtype="int64", name="label"
 #实例化网络对象并定义优化器等训练逻辑
 model = MyNet()
 model = paddle.Model(model,inputs=input_define,labels=label_define) #用Paddle.Model()对模型进行封装
-optimizer = paddle.optimizer.Adam(learning_rate=0.00005, parameters=model.parameters())
+optimizer = paddle.optimizer.Adam(learning_rate=3e-4, parameters=model.parameters())
 #上述优化器中的学习率(learning_rate)参数很重要。要是训练过程中得到的准确率呈震荡状态，忽大忽小，可以试试进一步把学习率调低。
 
 model.prepare(optimizer=optimizer, #指定优化器
               loss=paddle.nn.CrossEntropyLoss(), #指定损失函数
               metrics=paddle.metric.Accuracy()) #指定评估方法
+```
 
+    2021-03-10 13:42:46,934 - INFO - unique_endpoints {''}
+    2021-03-10 13:42:46,936 - INFO - Downloading resnet101.pdparams from https://paddle-hapi.bj.bcebos.com/models/resnet101.pdparams
+    100%|██████████| 263160/263160 [00:03<00:00, 66956.99it/s]
+    2021-03-10 13:42:51,169 - INFO - File /home/aistudio/.cache/paddle/hapi/weights/resnet101.pdparams md5 checking...
+
+
+```python
 model.fit(train_data=train_dataset,     #训练数据集
           eval_data=eval_dataset,         #测试数据集
-          batch_size=128,                  #一个批次的样本数量
-          epochs=100,                      #迭代轮次
+          batch_size=64,                  #一个批次的样本数量
+          epochs=10,                      #迭代轮次
+          shuffle=True,
           save_dir="/home/aistudio/lup", #把模型参数、优化器参数保存至自定义的文件夹
           save_freq=20,                    #设定每隔多少个epoch保存模型参数及优化器参数
-          log_freq=100                     #打印日志的频率
+          log_freq=100,
+          verbose=1                    #打印日志的频率
 )
 ```
 
+    The loss value printed in the log is the current step, and the metric is the average value of previous step.
+    Epoch 1/10
+
+
+    /opt/conda/envs/python35-paddle120-env/lib/python3.7/site-packages/paddle/fluid/layers/utils.py:77: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working
+      return (isinstance(seq, collections.Sequence) and
+    /opt/conda/envs/python35-paddle120-env/lib/python3.7/site-packages/paddle/nn/layer/norm.py:648: UserWarning: When training, we now always track global mean and variance.
+      "When training, we now always track global mean and variance.")
+
+
+    step 47/47 [==============================] - loss: 1.2684 - acc: 0.4799 - 976ms/step
+    save checkpoint at /home/aistudio/lup/0
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 1.1635 - acc: 0.7225 - 851ms/step
+    Eval samples: 746
+    Epoch 2/10
+    step 47/47 [==============================] - loss: 0.5241 - acc: 0.7545 - 972ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.7176 - acc: 0.7855 - 877ms/step
+    Eval samples: 746
+    Epoch 3/10
+    step 47/47 [==============================] - loss: 0.5882 - acc: 0.8088 - 982ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.8078 - acc: 0.8137 - 884ms/step
+    Eval samples: 746
+    Epoch 4/10
+    step 47/47 [==============================] - loss: 0.4881 - acc: 0.8486 - 976ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.6811 - acc: 0.8633 - 877ms/step
+    Eval samples: 746
+    Epoch 5/10
+    step 47/47 [==============================] - loss: 0.2994 - acc: 0.8583 - 985ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.7759 - acc: 0.8056 - 881ms/step
+    Eval samples: 746
+    Epoch 6/10
+    step 47/47 [==============================] - loss: 0.5039 - acc: 0.8784 - 986ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.7076 - acc: 0.8499 - 884ms/step
+    Eval samples: 746
+    Epoch 7/10
+    step 47/47 [==============================] - loss: 0.4930 - acc: 0.8868 - 972ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.2629 - acc: 0.8727 - 878ms/step
+    Eval samples: 746
+    Epoch 8/10
+    step 47/47 [==============================] - loss: 0.2420 - acc: 0.9099 - 989ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.3926 - acc: 0.8968 - 879ms/step
+    Eval samples: 746
+    Epoch 9/10
+    step 47/47 [==============================] - loss: 0.2041 - acc: 0.9273 - 982ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.7978 - acc: 0.8820 - 885ms/step
+    Eval samples: 746
+    Epoch 10/10
+    step 47/47 [==============================] - loss: 0.0587 - acc: 0.9233 - 976ms/step
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 12/12 [==============================] - loss: 0.1458 - acc: 0.8954 - 879ms/step
+    Eval samples: 746
+    save checkpoint at /home/aistudio/lup/final
+
+
 ```python
+# 模型评价
 model.evaluate(eval_dataset,verbose=1)
 ```
-### 7. 应用已经训练好的模型进行预测
 
-如果是要参加建模比赛，通常赛事组织方会提供待预测的数据集，我们需要利用自己构建的模型，来对待预测数据集合中的数据标签进行预测。也就是说，我们其实并不知道到其真实标签是什么，只有比赛的组织方知道真实标签，我们的模型预测结果越接近真实结果，那么分数也就越高。
+    Eval begin...
+    The loss value printed in the log is the current batch, and the metric is the average value of previous step.
+    step 746/746 [==============================] - loss: 0.1407 - acc: 0.9236 - 59ms/step         
+    Eval samples: 746
 
-预测流程分为以下几个步骤：
+    {'loss': [0.14068076], 'acc': 0.9235924932975871}
 
-一是构建数据读取器。因为预测数据集没有标签，该读取器写法和训练数据读取器不一样，建议重新写一个类，继承于Dataset基类。
 
-二是实例化模型。如果要用高阶API，需要用Paddle.Model()对模型进行封装，如paddle.Model(MyNet(),inputs=input_define)，由于是预测模型，所以仅设定输入数据格式就好了。
-
-三是读取刚刚训练好的参数。这个保存在/home/aistudio/work目录之下，如果指定的是final则是最后一轮训练后的结果。可以指定其他轮次的结果，比如model.load('/home/aistudio/work/30')，这里用到了高阶API，model.load()
-
-四是准备模型。这里用到高阶API，model.prepare()。
-
-五是读取待预测集合中的数据，利用已经训练好的模型进行预测。
-
-六是结果保存。
 ```python
+# 模型预测
 class InferDataset(Dataset):
     def __init__(self, img_path=None):
         """
@@ -447,3 +506,7 @@ with open("work/result.txt", "w") as f:
     for r in results:
         f.write("{}\n".format(r))
 ```
+
+总结：
+* 参考课件，通过cv2.flip操作生成图像加入样本，增加样本数量。
+* 改进的地方还有很多，以后再进一步。
