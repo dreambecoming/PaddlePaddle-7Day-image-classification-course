@@ -11,10 +11,6 @@
 * [调参](#调参)
 * [PaddleClas](#PaddleClas)
 * [作业](#作业)
-## 参考资料
-* [关于LeNet的前世今生](https://www.jiqizhixin.com/graph/technologies/6c9baf12-1a32-4c53-8217-8c9f69bd011b)
-
-
 
 # 课节5：图像分类竞赛全流程实战
 ## 竞赛全流程
@@ -1899,3 +1895,31 @@ create_csv_2('test_images')
     
     测试样本： test_0008.jpg
 
+总结：
+* 代码是根据课件改的，使用了课件中的：label shuffling、独热编码、Adam学习率init_lr=3e-4、图像增强。另外把测试集的归一化改成和训练集一样了。
+
+问题：
+* 随机翻转：T.RandomHorizontalFlip(224)，T.RandomVerticalFlip(224)，其中参数224不知道原因，一般默认是概率p，但是224就不得而知了。
+
+尝试对单张图片处理，没效果。先存着疑问。
+```python
+import paddle.vision.transforms as T
+from PIL import Image
+from matplotlib import pyplot as plt
+%matplotlib inline
+
+img = Image.open('lena.jpg')
+data_transforms = T.Compose([
+    T.Resize(size=(224)),
+    T.RandomHorizontalFlip(224),
+    T.RandomVerticalFlip(224),
+    T.Transpose(),    # HWC -> CHW
+    T.Normalize(
+        mean=[0, 0, 0],        # 归一化
+        std=[255, 255, 255],
+        to_rgb=True)    
+    ])
+data_transforms(img)
+plt.imshow(img)
+plt.show()
+```
