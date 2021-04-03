@@ -1914,7 +1914,7 @@ imgs_path_list = os.listdir(imgs_path)  #返回指定的文件夹包含的文件
 for item in imgs_path_list:
     img = cv2.imread(os.path.join(imgs_path,item))
     img = cv2.resize(img,(img_w,img_h))
-    img = img[:, :, :, np.newaxis] #增加第四维度
+    img = img[:, :, :, np.newaxis] #增加第四维度(640, 640, 3, 1)
     img_list.append(img)
 
 imgs_path = 'data/test_images' #测试集图片路径
@@ -1926,11 +1926,11 @@ for item in imgs_path_list:
     img = img[:, :, :, np.newaxis]
     img_list.append(img)
 
-imgs = np.concatenate(img_list, axis=3)
+imgs = np.concatenate(img_list, axis=3) #imgs.shape (640, 640, 3, 2753) 2753是训练集和测试集图片数量总和
 imgs = imgs.astype(np.float32) / 255.
  
 for i in range(3):
-    pixels = imgs[:, :, i, :].ravel()  # 将多维数组转换为一维数组
+    pixels = imgs[:, :, i, :].ravel()  # 将多维数组转换为一维数组。pixels.shape (1127628800,) 640*640*2753 每个rgb通道中有这么多个数。
     means.append(np.mean(pixels))
     stdevs.append(np.std(pixels))
  
@@ -1963,7 +1963,9 @@ print (aa)
 #  [5]]
 ```
 ```python
-#np.concatenate拼接数组。axis就是对应的维度。https://www.cnblogs.com/rrttp/p/8028421.html
+#np.concatenate拼接数组。axis就是对应的维度。
+#https://www.cnblogs.com/rrttp/p/8028421.html
+#https://blog.csdn.net/langb2014/article/details/97134750
 import numpy as np
  
 a1 = np.asarray(range(0,6),dtype=int)
