@@ -1923,3 +1923,58 @@ data_transforms(img)
 plt.imshow(img)
 plt.show()
 ```
+* 归一化 mean,std 数值的代码
+
+```python
+import numpy as np
+import cv2
+import os
+ 
+img_h, img_w = 640, 640   #图片大小
+means, stdevs = [], []
+img_list = []
+ 
+imgs_path = 'data/train_images'  #训练集图片路径
+imgs_path_list = os.listdir(imgs_path)  #返回指定的文件夹包含的文件或文件夹的名字的列表
+ 
+len_ = len(imgs_path_list)
+i = 0
+for item in imgs_path_list:
+    img = cv2.imread(os.path.join(imgs_path,item))
+    img = cv2.resize(img,(img_w,img_h))
+    img = img[:, :, :, np.newaxis] #增加第四维度
+    img_list.append(img)
+    i += 1
+
+
+imgs_path = 'data/test_images' #测试集图片路径
+imgs_path_list = os.listdir(imgs_path)
+ 
+len_ = len(imgs_path_list)
+i = 0
+for item in imgs_path_list:
+    img = cv2.imread(os.path.join(imgs_path,item))
+    img = cv2.resize(img,(img_w,img_h))
+    img = img[:, :, :, np.newaxis]
+    img_list.append(img)
+    i += 1
+
+
+# print(len(img_list))
+
+imgs = np.concatenate(img_list, axis=3)
+imgs = imgs.astype(np.float32) / 255.
+ 
+for i in range(3):
+    pixels = imgs[:, :, i, :].ravel()  # 拉成一行
+    means.append(np.mean(pixels))
+    stdevs.append(np.std(pixels))
+ 
+# BGR --> RGB ， CV读取的需要转换，PIL读取的不用转换
+means.reverse()
+stdevs.reverse()
+ 
+print("normMean = {}".format(means))
+print("normStd = {}".format(stdevs))
+```
+
