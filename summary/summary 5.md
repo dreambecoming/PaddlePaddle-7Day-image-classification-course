@@ -1897,32 +1897,6 @@ create_csv_2('test_images')
 
 总结：
 * 代码是根据课件改的，使用了课件中的：label shuffling、独热编码、Adam学习率init_lr=3e-4、图像增强。另外把测试集的归一化改成和训练集一样了。
-
-问题：
-* 随机翻转：T.RandomHorizontalFlip(224)，T.RandomVerticalFlip(224)，其中参数224不知道原因，一般默认是概率p，但是224就不得而知了。
-
-尝试对单张图片处理，没效果。先存着疑问。
-```python
-import paddle.vision.transforms as T
-from PIL import Image
-from matplotlib import pyplot as plt
-%matplotlib inline
-
-img = Image.open('lena.jpg')
-data_transforms = T.Compose([
-    T.Resize(size=(224)),
-    T.RandomHorizontalFlip(224),
-    T.RandomVerticalFlip(224),
-    T.Transpose(),    # HWC -> CHW
-    T.Normalize(
-        mean=[0, 0, 0],        # 归一化
-        std=[255, 255, 255],
-        to_rgb=True)    
-    ])
-data_transforms(img)
-plt.imshow(img)
-plt.show()
-```
 * 归一化 mean,std 数值的代码。上面没用到，看其他人文档记录下来的。
 
 ```python
@@ -1967,4 +1941,93 @@ stdevs.reverse()
 print("normMean = {}".format(means))
 print("normStd = {}".format(stdevs))
 ```
+** 代码中的一些点
+```python
+# np.newaxis 创建维度
+a=np.array([1,2,3,4,5])
+aa=a[:,np.newaxis]
+
+print(a)
+print(a.shape)
+print(aa.shape)
+print (aa)
+
+# 输出：
+# [1 2 3 4 5]
+# (5,)
+# (5, 1)
+# [[1]
+#  [2]
+#  [3]
+#  [4]
+#  [5]]
+```
+```python
+#np.concatenate拼接数组。axis就是对应的维度。https://www.cnblogs.com/rrttp/p/8028421.html
+import numpy as np
+ 
+a1 = np.asarray(range(0,6),dtype=int)
+a2 = np.asarray(range(0,6),dtype=int)
+aa1= a1.reshape([1,2,3])
+aa2 =a2.reshape([1,2,3])
+ 
+print("aa1,aa2:\n",aa1,"\n")
+print("aa1,aa2_shape:\n",aa1.shape,"\n") #(1, 2, 3)
+
+k1 = np.concatenate((aa1,aa2),axis=0)
+k2 = np.concatenate((aa1,aa2),axis=1)
+k3 = np.concatenate((aa1,aa2),axis=2)
+print("k1:{}\n k2:{}\n k3:{}\n".format(k1,k2,k3))
+ 
+# print(k1.shape) #(2, 2, 3)
+# print(k2.shape) #(1, 4, 3)
+# print(k3.shape) #(1, 2, 6)
+
+# 输出：
+# aa1,aa2:
+#  [[[0 1 2]
+#   [3 4 5]]] 
+
+# aa1,aa2_shape:
+#  (1, 2, 3) 
+
+# k1:[[[0 1 2]
+#   [3 4 5]]
+
+#  [[0 1 2]
+#   [3 4 5]]]
+#  k2:[[[0 1 2]
+#   [3 4 5]
+#   [0 1 2]
+#   [3 4 5]]]
+#  k3:[[[0 1 2 0 1 2]
+#   [3 4 5 3 4 5]]]
+```
+
+问题：
+* 随机翻转：T.RandomHorizontalFlip(224)，T.RandomVerticalFlip(224)，其中参数224不知道原因，一般默认是概率p，但是224就不得而知了。
+
+尝试对单张图片处理，没效果。先存着疑问。
+```python
+import paddle.vision.transforms as T
+from PIL import Image
+from matplotlib import pyplot as plt
+%matplotlib inline
+
+img = Image.open('lena.jpg')
+data_transforms = T.Compose([
+    T.Resize(size=(224)),
+    T.RandomHorizontalFlip(224),
+    T.RandomVerticalFlip(224),
+    T.Transpose(),    # HWC -> CHW
+    T.Normalize(
+        mean=[0, 0, 0],        # 归一化
+        std=[255, 255, 255],
+        to_rgb=True)    
+    ])
+data_transforms(img)
+plt.imshow(img)
+plt.show()
+```
+
 
